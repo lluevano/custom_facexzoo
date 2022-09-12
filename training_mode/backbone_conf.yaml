@@ -3,6 +3,11 @@ MobileFaceNet:
     out_h: 7
     out_w: 7
 
+ShuffleFaceNet:
+    feat_dim: 128
+    image_size: 112
+    depth: 1.5
+
 ResNet:
     depth: 152
     drop_ratio: 0.4

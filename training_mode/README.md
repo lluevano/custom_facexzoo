@@ -11,6 +11,7 @@ Align the face images to 112*112 according to [face_align.py](../face_sdk/api_us
 Edit the configuration in [backbone_conf.yaml](backbone_conf.yaml). Detailed description about the configuration can be found in [backbone_def.py](../backbone/backbone_def.py).  
 ### Step3: Configure the head  
 Edit the configuration in [head_conf.yaml](head_conf.yaml). Detailed description about the configuration can be found in [head_def.py](../head/head_def.py).  
+Note: You have to check the embedding size configuration in the backbone params and head params.
 ### Step4: Configure the training setting for each mode.  
 Edit the configuration in train.sh. Detailed description about the configuration can be found in train.py.  
 ### Step5: Start training  
@@ -18,6 +19,7 @@ sh train.sh
 ### Other Tips
 * In order to train a model using only the upper half of face (model2 in 3.4), you need to set the last parameter of 'ImageDataset' to True and modify the 'out_h' of the backbone to 4.  
 * In order to train the masked face recognition model (model3 in 3.4), you just need to change the training set to MS-Celeb-1M-v1c-Mask, which includes 72,778 identities and about 3.28*2M images.  
+
 
 ## 3. Trained models and logs
 The models and training logs mentioned in our technical report are listed as follows. You can click the link to download them. For Megaface, we report the accuracy of the last checkpoint, and for other benchmarks, we report the accuracy of the best checkpoint.

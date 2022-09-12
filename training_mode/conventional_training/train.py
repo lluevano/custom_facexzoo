@@ -16,7 +16,7 @@ from tensorboardX import SummaryWriter
 
 sys.path.append('../../')
 from utils.AverageMeter import AverageMeter
-from data_processor.train_dataset import ImageDataset
+from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset)
 from backbone.backbone_def import BackboneFactory
 from head.head_def import HeadFactory
 
@@ -102,8 +102,13 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
 def train(conf):
     """Total training procedure.
     """
-    data_loader = DataLoader(ImageDataset(conf.data_root, conf.train_file), 
-                             conf.batch_size, True, num_workers = 4)
+    if conf.train_file.endswith('.tfrecord'): #  Adapted code to read tfrecord
+        idx_file_path = os.path.join(conf.data_root, 'mxnet', 'train.idx')
+        tfrecord_iterable_db = load_tfrecord_dataset(tfrecord_path=conf.train_file, index_path=idx_file_path)
+        data_loader = DataLoader(tfrecord_iterable_db,conf.batch_size, True, num_workers = 4)
+    else:
+        data_loader = DataLoader(ImageDataset(conf.data_root, conf.train_file),
+                                 conf.batch_size, True, num_workers = 4)
     conf.device = torch.device('cuda:0')
     criterion = torch.nn.CrossEntropyLoss().cuda(conf.device)
     backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file)    

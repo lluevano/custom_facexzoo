@@ -10,6 +10,7 @@ import cv2
 import torch
 import numpy as np
 from torch.utils.data import Dataset
+from tfrecord.torch.dataset import TFRecordDataset
 
 def transform(image):
     """ Transform a image by cv2.
@@ -46,6 +47,11 @@ def transform(image):
         image = torch.from_numpy(image.astype(np.float32))
     return image
 
+def load_tfrecord_dataset(tfrecord_path, index_path, description={"data": "byte", "label": "int"}):
+    #  Returns a Pytorch IterableDataset
+    #  tfrecord_path = "/idiap/home/lluevano/my_databases/DataZoo_MS1M-ArcFace/tensorflow/faces_emore.tfrecord"
+    dataset = TFRecordDataset(tfrecord_path, index_path, description)
+    return dataset
 
 class ImageDataset(Dataset):
     def __init__(self, data_root, train_file, crop_eye=False):

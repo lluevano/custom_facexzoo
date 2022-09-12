@@ -9,6 +9,7 @@ import yaml
 sys.path.append('../../')
 from backbone.ResNets import Resnet
 from backbone.MobileFaceNets import MobileFaceNet
+from backbone.ShuffleFaceNet import ShuffleFaceNet
 from backbone.EfficientNets import EfficientNet
 from backbone.EfficientNets import efficientnet
 from backbone.HRNet import HighResolutionNet
@@ -42,6 +43,11 @@ class BackboneFactory:
             out_h = self.backbone_param['out_h'] # height of the feature map before the final features.
             out_w = self.backbone_param['out_w'] # width of the feature map before the final features.
             backbone = MobileFaceNet(feat_dim, out_h, out_w)
+        if self.backbone_type == 'ShuffleFaceNet':
+            feat_dim = self.backbone_param['feat_dim'] # dimension of the output features, e.g. 512.
+            depth = self.backbone_param['depth'] # depth for ShuffleFaceNet: 0.5, 1.0, 1.5, or 2.0
+            image_size = self.backbone_param['image_size'] # input image size, e.g. 112.
+            backbone = ShuffleFaceNet(feat_dim, depth, image_size)
         elif self.backbone_type == 'ResNet':
             depth = self.backbone_param['depth'] # depth of the ResNet, e.g. 50, 100, 152.
             drop_ratio = self.backbone_param['drop_ratio'] # drop out ratio.
