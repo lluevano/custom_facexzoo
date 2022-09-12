@@ -1,92 +1,59 @@
 # Custom FaceXZoo
 
-FaceXZoo modifications for idiap
+FaceXZoo modifications for idiap by Luis Luevano
 
-## Getting started
+<img src="./data/images/logo.png" width="150" >
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+# FaceX-Zoo
+FaceX-Zoo is a PyTorch toolbox for face recognition. It provides a training module with various supervisory heads and backbones towards state-of-the-art face recognition, as well as a standardized evaluation module which enables to evaluate the models in most of the popular benchmarks just by editing a simple configuration. Also, a simple yet fully functional face SDK is provided for the validation and primary application of the trained models. Rather than including as many as possible of the prior techniques, we enable FaceX-Zoo to easilyupgrade and extend along with the development of face related domains. Please refer to the [technical report](https://arxiv.org/pdf/2101.04407.pdf) for more detailed information about this project.
+  
+About the name:
+* "Face" - this repo is mainly for face recognition.
+* "X" - we also aim to provide something beyond face recognition, e.g. face parsing, face lightning.
+* "Zoo" - there include a lot of algorithms and models in this repo.
+![image](data/images/arch.jpg)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+# What's New
+- [Oct. 2021] [Swin Transformer](https://arxiv.org/pdf/2103.14030.pdf) is supported now! We obtain a quite promising result of 98.17 in MegaFace rank1 protocol with Swin-S. For more results, pretrained models and logs please refer to [3.1 Experiments of SOTA backbones](training_mode/README.md). For training face recognition model with Swin Transformer, please refer to [swin_training](training_mode/swin_training). Note that the input size is 224\*224 but not 112\*112 and we use AdamW+CosineLRScheduler to optimize it instead of SGD+MultiStepLR.
+- [Sep. 2021] We provide a [Dockfile](docker/Dockerfile) to buid the docker image of this project.
+- [Aug. 2021] [RepVGG](https://arxiv.org/pdf/2101.03697.pdf) has been added to the backbones for face recognition, the performance of RepVGG_A0, B0, B1 can be found in [3.1 Experiments of SOTA backbones](training_mode).
+- [Jul. 2021] A method for facial expression recognition named [DMUE](https://openaccess.thecvf.com/content/CVPR2021/papers/She_Dive_Into_Ambiguity_Latent_Distribution_Mining_and_Pairwise_Uncertainty_Estimation_CVPR_2021_paper.pdf) has been accepted by CVPR2021, and all codes have been released [here](addition_module/DMUE).
+- [Jun. 2021] We evaluate some knowledge distillation methods on face recognition task, results and codes can be found in [face_lightning](addition_module/face_lightning/KDF) module.
+- [May. 2021] Tools to convert a trained model to onnx format and the provided sdk format can be found in [model_convertor](addition_module/model_convertor).
+- [Apr. 2021] IJB-C 1:1 protocol has been added to the [evaluation module](test_protocol/test_ijbc.sh).
+- [Mar. 2021] [ResNeSt](https://hangzhang.org/files/resnest.pdf) and [ReXNet](https://arxiv.org/pdf/2007.00992.pdf) have been added to the backbones, [MagFace](https://arxiv.org/pdf/2103.06627.pdf) has been added to the heads. 
+- [Feb. 2021] Distributed training and mixed precision training by [apex](https://github.com/NVIDIA/apex) is supported. Please check [distributed_training](training_mode/distributed_training) and [train_amp.py](training_mode/conventional_training/train_amp.py)
+- [Jan. 2021] We commit the initial version of FaceX-Zoo.
 
-## Add your files
+# Requirements
+* python >= 3.7.1
+* pytorch >= 1.1.0
+* torchvision >= 0.3.0 
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+# Model Training  
+See [README.md](training_mode/README.md) in [training_mode](training_mode), currently support conventional training and [semi-siamese training](https://arxiv.org/abs/2007.08398).
+# Model Evaluation  
+See [README.md](test_protocol/README.md) in [test_protocol](test_protocol), currently support [LFW](https://people.cs.umass.edu/~elm/papers/lfw.pdf), [CPLFW](http://www.whdeng.cn/CPLFW/Cross-Pose-LFW.pdf), [CALFW](https://arxiv.org/abs/1708.08197), [RFW](https://arxiv.org/abs/1812.00194), [AgeDB30](https://core.ac.uk/download/pdf/83949017.pdf), [IJB-C](http://biometrics.cse.msu.edu/Publications/Face/Mazeetal_IARPAJanusBenchmarkCFaceDatasetAndProtocol_ICB2018.pdf), [MegaFace](https://arxiv.org/abs/1512.00596) and MegaFace-mask.
+# Face SDK
+See [README.md](face_sdk/README.md) in [face_sdk](face_sdk), currently support face detection, face alignment and face recognition.
+# Face Mask Adding
+See [README.md](addition_module/face_mask_adding/FMA-3D/README.md) in [FMA-3D](addition_module/face_mask_adding/FMA-3D).
 
+# License
+FaceX-Zoo is released under the [Apache License, Version 2.0](LICENSE).
+
+# Acknowledgements
+This repo is mainly inspired by [InsightFace](https://github.com/deepinsight/insightface), [InsightFace_Pytorch](https://github.com/TreB1eN/InsightFace_Pytorch), [face.evoLVe](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch/blob/master/README.md). We thank the authors a lot for their valuable efforts.
+
+# Citation
+Please consider citing our paper in your publications if the project helps your research. BibTeX reference is as follows.
+```BibTeX
+@inproceedings{wang2021facex,
+  author = {Jun Wang, Yinglu Liu, Yibo Hu, Hailin Shi and Tao Mei},
+  title = {FaceX-Zoo: A PyTorh Toolbox for Face Recognition},
+  journal = {Proceedings of the 29th ACM international conference on Multimedia},
+  year = {2021}
+}
 ```
-cd existing_repo
-git remote add origin https://gitlab.idiap.ch/lluevano/custom-facexzoo.git
-git branch -M master
-git push -uf origin master
-```
+If you have any questions, please contact with Jun Wang (wangjun492@jd.com), Yinglu Liu (liuyinglu1@jd.com), [Yibo Hu](https://aberhu.github.io/) (huyibo6@jd.com),  [Hailin Shi](https://sites.google.com/view/hailin-shi) (shihailin@jd.com) and [Wu Liu](http://drliuwu.com)(liuwu1@jd.com).
 
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.idiap.ch/lluevano/custom-facexzoo/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
