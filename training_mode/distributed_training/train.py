@@ -128,6 +128,7 @@ def train(args):
     backbone_factory = BackboneFactory(args.backbone_type, args.backbone_conf_file)    
     head_factory = HeadFactory(args.head_type, args.head_conf_file)
     model = FaceModel(backbone_factory, head_factory)
+    model.load_state_dict(args.pretrain_model) #pretrained
     model = model.to(args.local_rank)
     model.train()
     for ps in model.parameters():

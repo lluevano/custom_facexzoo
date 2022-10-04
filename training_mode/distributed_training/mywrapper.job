@@ -1,0 +1,45 @@
+
+
+#!/bin/bash
+# WARNING: You MUST use bash to prevent errors
+
+## Sun's Grid Engine parameters
+# ... job name
+#$ -N Pytorch-FT-Tinyface
+# ... make sure to use proper shell
+#$ -S /bin/bash
+# ... e-mail address to send notifications
+#$ -M luis.luevano@idiap.ch
+# ... queue
+#$ -l q_short_gpu
+#$ -P scbiometrics
+# ... use current working directory for output
+
+## Environment
+# WARNING: your ~/.bashrc will NOT be loaded by SGE
+# WARNING: do NOT load your default ~/.bashrc environment blindly; it will most likely break SGE!
+# WARNING: include ONLY the SETSHELLs required for the job at hand; some SETSHELLs will break SGE!
+# ... SETSHELL
+##. /idiap/resource/software/initfiles/shrc
+##SETSHELL grid
+
+
+export OMP_NUM_THREADS=4
+#SGE_TEMOROOT SELECTION
+SGE_TMPROOT=
+for sge_tmproot in \
+  /tmp/xtd \
+  /local/scratch/tmp \
+  /idiap/resource/software/sge/temp \
+; do
+  [ ! -d "${sge_tmproot}" ] && continue
+  [ ! -w "${sge_tmproot}" ] && continue
+  SGE_TMPROOT="${sge_tmproot}"
+  break
+done
+# Set user temporary directory
+[ -n "${SGE_TMPROOT}" ] && SGE_TMPDIR="${SGE_TMPROOT%%/}/sge-tmpdir.${JOB_ID}.${SGE_TASK_ID}.d"
+
+## Job
+
+python3 -m torch.distributed.launch --nproc_per_node=4 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=1324 train.py --data_root "/idiap/temp/lluevano/tinyface/resized/" --train_file 'tinyface_train_list.lst' --pretrain_model="/idiap/home/lluevano/bob_data/data/pytorch/MobileFaceNet-ca475a8d.pt.tar.gz/MobileFaceNet.pt" --backbone_type 'ResNet' --backbone_conf_file '../backbone_conf.yaml' --head_type 'ArcFace' --head_conf_file '../head_conf.yaml' --lr 0.1 --out_dir 'out_dir' --epoches 18 --step '10,13,16' --print_freq 200 --save_freq 3000 --batch_size 16 --momentum 0.9 --log_dir 'log' --tensorboardx_logdir 'arcface-tinyface-mobilefacenet'

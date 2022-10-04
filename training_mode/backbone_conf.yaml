@@ -9,7 +9,7 @@ ShuffleFaceNet:
     depth: 1.5
 
 ResNet:
-    depth: 152
+    depth: 100
     drop_ratio: 0.4
     net_mode: ir_se
     feat_dim: 512
