@@ -21,6 +21,7 @@ from backbone.ReXNets import ReXNetV1
 from backbone.LightCNN import LightCNN
 from backbone.RepVGG import RepVGG
 from backbone.Swin_Transformer import SwinTransformer
+from backbone.iresnet import IResNet
 
 class BackboneFactory:
     """Factory to produce backbone according the backbone_conf.yaml.
@@ -43,11 +44,25 @@ class BackboneFactory:
             out_h = self.backbone_param['out_h'] # height of the feature map before the final features.
             out_w = self.backbone_param['out_w'] # width of the feature map before the final features.
             backbone = MobileFaceNet(feat_dim, out_h, out_w)
-        if self.backbone_type == 'ShuffleFaceNet':
+        elif self.backbone_type == 'ShuffleFaceNet':
             feat_dim = self.backbone_param['feat_dim'] # dimension of the output features, e.g. 512.
             depth = self.backbone_param['depth'] # depth for ShuffleFaceNet: 0.5, 1.0, 1.5, or 2.0
             image_size = self.backbone_param['image_size'] # input image size, e.g. 112.
             backbone = ShuffleFaceNet(feat_dim, depth, image_size)
+        elif self.backbone_type == "IResNet":
+            depth = self.backbone_param['depth']
+            if depth == 100:
+                layers = [3, 13, 30, 3]
+            elif depth == 50:
+                layers = [3, 4, 14, 3]
+            elif depth == 34:
+                layers = [3, 4, 6, 3]
+            else:
+                raise "IResNet depth parameter not defined"
+
+            feat_dim = self.backbone_param['feat_dim']
+            backbone = IResNet(layers=layers, num_features=feat_dim)
+
         elif self.backbone_type == 'ResNet':
             depth = self.backbone_param['depth'] # depth of the ResNet, e.g. 50, 100, 152.
             drop_ratio = self.backbone_param['drop_ratio'] # drop out ratio.

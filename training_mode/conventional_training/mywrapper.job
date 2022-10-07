@@ -1,0 +1,46 @@
+#!/bin/bash
+# WARNING: You MUST use bash to prevent errors
+
+## Sun's Grid Engine parameters
+# ... job name
+#$ -N Pytorch-FT-Tinyface
+# ... make sure to use proper shell
+#$ -S /bin/bash
+# ... e-mail address to send notifications
+#$ -M luis.luevano@idiap.ch
+#$ -P scbiometrics
+# ... use current working directory for output
+#$ -cwd
+#. /idiap/resource/software/initfiles/shrc
+#SETSHELL grid
+
+
+source /idiap/home/lluevano/mambaforge-pypy3/bin/activate
+conda activate /idiap/temp/lluevano/my_envs/train_env/
+
+## export LD_LIBRARY_PATH="/idiap/resource/software/sge/stable/NCCL/lx-amd64/cuda10.0/":$LD_LIBRARY_PATH
+## Job
+
+mkdir 'log'
+python train.py \
+    --data_root '/idiap/temp/lluevano/tinyface/resized/' \
+    --train_file './tinyface_train_list.lst' \
+    --backbone_type 'MobileFaceNet' \
+    --backbone_conf_file '../backbone_conf.yaml' \
+    --head_type 'ArcFace' \
+    --head_conf_file '../head_conf.yaml' \
+    --lr 0.001 \
+    --out_dir 'ft_tinyface/not_freeze_30_50_epoches_mobilefacenet_lr0.001' \
+    --epoches 50 \
+    --step '25, 35, 45' \
+    --print_freq 200 \
+    --save_freq 3000 \
+    --batch_size 128 \
+    --momentum 0.9 \
+    --log_dir 'log' \
+    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/MobileFaceNet-ca475a8d.pt.tar.gz/MobileFaceNet.pt' --resume\
+    --tensorboardx_logdir 'mv-hrnet' \
+    --fine_tune True \
+    2>&1 | tee log/log.log
+
+

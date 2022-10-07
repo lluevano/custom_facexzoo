@@ -16,7 +16,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
-sys.path.append('../../')
+sys.path.append("/idiap/temp/lluevano/FaceX-Zoo/")
 from utils.AverageMeter import AverageMeter
 from data_processor.train_dataset import ImageDataset
 from backbone.backbone_def import BackboneFactory
@@ -128,7 +128,24 @@ def train(args):
     backbone_factory = BackboneFactory(args.backbone_type, args.backbone_conf_file)    
     head_factory = HeadFactory(args.head_type, args.head_conf_file)
     model = FaceModel(backbone_factory, head_factory)
-    model.load_state_dict(args.pretrain_model) #pretrained
+    ori_epoch = 0
+    if args.resume:
+        ori_epoch = ori_epoch if args.fine_tune else torch.load(args.pretrain_model)['epoch']
+        ori_epoch += 1
+        state_dict = torch.load(args.pretrain_model)['state_dict']
+        if args.fine_tune:
+            del state_dict['head.weight']
+        model.load_state_dict(state_dict, strict=False)
+
+    # freezing layers
+    total_params = len([p for p in model.parameters()])
+    not_freeze_ratio = .3
+    i = 0
+    for p in model.parameters():
+        if i >= int(total_params * not_freeze_ratio):
+            p.requires_grad = False
+        i += 1
+
     model = model.to(args.local_rank)
     model.train()
     for ps in model.parameters():
@@ -140,7 +157,6 @@ def train(args):
         device_ids=[args.local_rank]
     )
     criterion = torch.nn.CrossEntropyLoss().to(args.local_rank)
-    ori_epoch = 0
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.SGD(parameters, lr = args.lr, 
                           momentum = args.momentum, weight_decay = 1e-4)
@@ -192,7 +208,9 @@ if __name__ == '__main__':
     conf.add_argument('--pretrain_model', type = str, default = 'mv_epoch_8.pt',
                       help = 'The path of pretrained model')
     conf.add_argument('--resume', '-r', action = 'store_true', default = False,
-                      help = 'Whether to resume from a checkpoint.')    
+                      help = 'Whether to resume from a checkpoint.')
+    conf.add_argument('--fine_tune', '-ft', type=bool, default=False,
+                      help='Specify if fine tuning to another dataset.')
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]
     train(args)

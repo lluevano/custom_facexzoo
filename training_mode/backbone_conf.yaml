@@ -8,6 +8,10 @@ ShuffleFaceNet:
     image_size: 112
     depth: 1.5
 
+IResNet:
+  depth: 100
+  feat_dim: 512
+
 ResNet:
     depth: 100
     drop_ratio: 0.4

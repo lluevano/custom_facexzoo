@@ -116,10 +116,34 @@ def train(conf):
     model = FaceModel(backbone_factory, head_factory)
     ori_epoch = 0
     if conf.resume:
-        ori_epoch = torch.load(args.pretrain_model)['epoch'] + 1
-        state_dict = torch.load(args.pretrain_model)['state_dict']
-        model.load_state_dict(state_dict)
+        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model)['epoch'] # TODO catch keyerror
+        ori_epoch += 1
+        try:
+            state_dict = torch.load(args.pretrain_model)['state_dict']
+        except KeyError: #  format is likely not to come from facexzoo
+            state_dict = torch.load(args.pretrain_model)
+            assert type(state_dict) == dict
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                if k != 'head.weight':
+                    new_k_prefix = "" if k.startswith("backbone.") else "backbone."
+                    new_state_dict[new_k_prefix+k] = v
+            state_dict = new_state_dict
+
+        if conf.fine_tune and ('head.weight' in state_dict.keys()):
+            del state_dict['head.weight']
+        print(model.load_state_dict(state_dict, strict=False))
+
+    #freezing parameters
+    total_params = len([p for p in model.parameters()])
+    not_freeze_ratio = conf.not_freeze_rate
+    i = 0
+    for p in model.parameters():
+        if i >= int(total_params*not_freeze_ratio):
+            p.requires_grad = False
+        i+=1
     model = torch.nn.DataParallel(model).cuda()
+
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.SGD(parameters, lr = conf.lr, 
                           momentum = conf.momentum, weight_decay = 1e-4)
@@ -170,6 +194,10 @@ if __name__ == '__main__':
                       help = 'The path of pretrained model')
     conf.add_argument('--resume', '-r', action = 'store_true', default = False, 
                       help = 'Whether to resume from a checkpoint.')
+    conf.add_argument('--fine_tune', '-ft', type=bool, default=False,
+                      help='Specify if fine tuning to another dataset.')
+    conf.add_argument('--not_freeze_rate', '-nfr', type=float, default=1,
+                      help='Specify the rate of trainable parameters.')
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]
     if not os.path.exists(args.out_dir):
