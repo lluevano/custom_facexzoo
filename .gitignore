@@ -5,3 +5,6 @@
 /training_mode/*/out_dir/*
 /training_mode/*/log/*
 *.log
+*.pt
+*/__pycache__/*
+*.pyc

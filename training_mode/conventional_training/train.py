@@ -53,6 +53,39 @@ def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
 
+def unfreeze_first_n_layers(model, n_layers):
+    for p in model.parameters():
+        p.requires_grad = False
+
+    def _dfs_unfreeze(mod, unfrozen_n, limit_unfreeze):
+        total_unfrozen = unfrozen_n
+        mod_gen = mod.children()
+        while total_unfrozen < limit_unfreeze:
+            try:
+                #  iterate through module children
+                current_mod = next(mod_gen)
+                try:
+                    #  determine if it's a root or leaf
+                    next(current_mod.children())
+                    total_unfrozen = _dfs_unfreeze(current_mod, total_unfrozen, limit_unfreeze) # go deeper
+                except StopIteration:
+                    #  We're in a leaf node
+                    #  print("Leaf: " + str(current_mod) + " visited")
+                    if total_unfrozen < limit_unfreeze:
+                        print("Leaf: " + str(current_mod) + " unfrozen")
+                        for param in current_mod.parameters():
+                            param.requires_grad = True
+                        total_unfrozen += 1
+                    else:
+                        return total_unfrozen
+            except StopIteration:
+                #  finish breath iteration
+                return total_unfrozen
+
+        return total_unfrozen
+
+    _dfs_unfreeze(model, 0, n_layers)
+
 def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf):
     """Tain one epoch by traditional training.
     """
@@ -68,6 +101,8 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
             outputs, loss_g = model.forward(images, labels)
             loss_g = torch.mean(loss_g)
             loss = criterion(outputs, labels) + loss_g
+        elif conf.head_type == 'ContrastiveLoss':
+            loss = model.forward(images, labels)
         else:
             outputs = model.forward(images, labels)
             loss = criterion(outputs, labels)
@@ -116,12 +151,12 @@ def train(conf):
     model = FaceModel(backbone_factory, head_factory)
     ori_epoch = 0
     if conf.resume:
-        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model)['epoch'] # TODO catch keyerror
+        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model,map_location=torch.device('cpu'))['epoch'] # TODO catch keyerror
         ori_epoch += 1
         try:
-            state_dict = torch.load(args.pretrain_model)['state_dict']
+            state_dict = torch.load(args.pretrain_model,map_location=torch.device('cpu'))['state_dict']
         except KeyError: #  format is likely not to come from facexzoo
-            state_dict = torch.load(args.pretrain_model)
+            state_dict = torch.load(args.pretrain_model,map_location=torch.device('cpu'))
             assert type(state_dict) == dict
             new_state_dict = {}
             for k, v in state_dict.items():
@@ -129,19 +164,13 @@ def train(conf):
                     new_k_prefix = "" if k.startswith("backbone.") else "backbone."
                     new_state_dict[new_k_prefix+k] = v
             state_dict = new_state_dict
-
         if conf.fine_tune and ('head.weight' in state_dict.keys()):
             del state_dict['head.weight']
         print(model.load_state_dict(state_dict, strict=False))
+        #  unfreeze layers
+        if conf.fine_tune and conf.n_unfrozen_layers:
+            unfreeze_first_n_layers(model, conf.n_unfrozen_layers)
 
-    #freezing parameters
-    total_params = len([p for p in model.parameters()])
-    not_freeze_ratio = conf.not_freeze_rate
-    i = 0
-    for p in model.parameters():
-        if i >= int(total_params*not_freeze_ratio):
-            p.requires_grad = False
-        i+=1
     model = torch.nn.DataParallel(model).cuda()
 
     parameters = [p for p in model.parameters() if p.requires_grad]
@@ -196,7 +225,7 @@ if __name__ == '__main__':
                       help = 'Whether to resume from a checkpoint.')
     conf.add_argument('--fine_tune', '-ft', type=bool, default=False,
                       help='Specify if fine tuning to another dataset.')
-    conf.add_argument('--not_freeze_rate', '-nfr', type=float, default=1,
+    conf.add_argument('--n_unfrozen_layers', type=float, default=1,
                       help='Specify the rate of trainable parameters.')
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]

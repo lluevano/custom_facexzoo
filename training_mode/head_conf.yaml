@@ -8,6 +8,9 @@ AdaM-Softmax:
     scale: 32
     lamda: 70.0
 
+ContrastiveLoss:
+    distance: 'cosine'
+
 AM-Softmax:
     feat_dim: 512
     num_class: 72778

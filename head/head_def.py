@@ -18,6 +18,7 @@ from head.NPCFace import NPCFace
 from head.SST_Prototype import SST_Prototype
 from head.ArcNegFace import ArcNegFace
 from head.MagFace import MagFace
+from head.ContrastiveLoss import ContrastiveLoss
 
 class HeadFactory:
     """Factory to produce head according to the head_conf.yaml
@@ -38,6 +39,9 @@ class HeadFactory:
             feat_dim = self.head_param['feat_dim'] # dimension of the output features, e.g. 512 
             num_class = self.head_param['num_class'] # number of classes in the training set.
             head = AdaCos(feat_dim, num_class)
+        elif self.head_type == 'ContrastiveLoss':
+            distance = self.head_param["distance"]
+            head = ContrastiveLoss(distance)
         elif self.head_type == 'AdaM-Softmax':
             feat_dim = self.head_param['feat_dim'] # dimension of the output features, e.g. 512 
             num_class = self.head_param['num_class'] # number of classes in training set.
