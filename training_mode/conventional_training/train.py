@@ -151,12 +151,12 @@ def train(conf):
     model = FaceModel(backbone_factory, head_factory)
     ori_epoch = 0
     if conf.resume:
-        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model,map_location=torch.device('cpu'))['epoch'] # TODO catch keyerror
+        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model)['epoch'] # TODO catch keyerror
         ori_epoch += 1
         try:
-            state_dict = torch.load(args.pretrain_model,map_location=torch.device('cpu'))['state_dict']
+            state_dict = torch.load(args.pretrain_model)['state_dict']
         except KeyError: #  format is likely not to come from facexzoo
-            state_dict = torch.load(args.pretrain_model,map_location=torch.device('cpu'))
+            state_dict = torch.load(args.pretrain_model)
             assert type(state_dict) == dict
             new_state_dict = {}
             for k, v in state_dict.items():
