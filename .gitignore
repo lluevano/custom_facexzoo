@@ -8,3 +8,4 @@
 *.pt
 */__pycache__/*
 *.pyc
+/training_mode/conventional_training/ft_tinyface_verification/

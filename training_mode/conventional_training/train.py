@@ -13,8 +13,10 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
-
 sys.path.append('../../')
+from test_protocol.bob_test_protocol import score_bob_model
+
+
 from utils.AverageMeter import AverageMeter
 from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset)
 from backbone.backbone_def import BackboneFactory
@@ -23,6 +25,7 @@ from head.head_def import HeadFactory
 logger.basicConfig(level=logger.INFO, 
                    format='%(levelname)s %(asctime)s %(filename)s: %(lineno)d] %(message)s',
                    datefmt='%Y-%m-%d %H:%M:%S')
+import math
 
 class FaceModel(torch.nn.Module):
     """Define a traditional face model which contains a backbone and a head.
@@ -53,7 +56,10 @@ def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
 
+
+
 def unfreeze_first_n_layers(model, n_layers):
+    #freeze all layers
     for p in model.parameters():
         p.requires_grad = False
 
@@ -86,7 +92,7 @@ def unfreeze_first_n_layers(model, n_layers):
 
     _dfs_unfreeze(model, 0, n_layers)
 
-def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf):
+def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf, best_criterion):
     """Tain one epoch by traditional training.
     """
     for batch_idx, (images, labels) in enumerate(data_loader):
@@ -134,6 +140,17 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
     torch.save(state, os.path.join(conf.out_dir, saved_name))
     logger.info('Save checkpoint %s to disk...' % saved_name)
 
+    #  Add verification using bob
+    model = model.module
+    eval_model = torch.nn.DataParallel(model.backbone).cuda()
+    scores = score_bob_model(eval_model, groups=["dev",], out_dir=conf.out_dir, epoch=cur_epoch)
+    if scores[0]['EER'] < best_criterion['EER']:
+        best_criterion['EER'] = scores[0]['EER']
+        best_criterion['epoch'] = cur_epoch
+        print(f"Best EER yet for dev set found at epoch {cur_epoch}")
+    model = torch.nn.DataParallel(model).cuda()
+    model.train()
+    logger.info('End verification')
 def train(conf):
     """Total training procedure.
     """
@@ -180,10 +197,15 @@ def train(conf):
         optimizer, milestones = conf.milestones, gamma = 0.1)
     loss_meter = AverageMeter()
     model.train()
+    best_criterion={'EER': math.inf}
     for epoch in range(ori_epoch, conf.epoches):
         train_one_epoch(data_loader, model, optimizer, 
-                        criterion, epoch, loss_meter, conf)
-        lr_schedule.step()                        
+                        criterion, epoch, loss_meter, conf, best_criterion)
+        lr_schedule.step()
+    #  Finished training
+    logger.info("Running final verification on eval set")
+    scores = score_bob_model(torch.nn.DataParallel(model.module.backbone).cuda(), groups=["eval"], out_dir=conf.out_dir)
+    print("End verification")
 
 if __name__ == '__main__':
     conf = argparse.ArgumentParser(description='traditional_training for face recognition.')
@@ -225,7 +247,7 @@ if __name__ == '__main__':
                       help = 'Whether to resume from a checkpoint.')
     conf.add_argument('--fine_tune', '-ft', type=bool, default=False,
                       help='Specify if fine tuning to another dataset.')
-    conf.add_argument('--n_unfrozen_layers', type=float, default=1,
+    conf.add_argument('--n_unfrozen_layers', type=float, default=None,
                       help='Specify the rate of trainable parameters.')
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]
