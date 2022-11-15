@@ -29,7 +29,7 @@ import pickle
 import glob
 
 
-def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, dask_client=None, groups=["dev",]):
+def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, dask_client=None, groups=["dev",], device=None):
     #  Add verification using bob
     eval_model = model
     eval_model.use_head = False
@@ -41,7 +41,7 @@ def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, d
         print(scores_dict)
         scores = [scores_dict]
     else:
-        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=groups, out_dir=conf.out_dir, epoch=cur_epoch, device='cpu', dask_client=dask_client)
+        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=groups, out_dir=conf.out_dir, epoch=cur_epoch, device=device, dask_client=dask_client)
 
     if (scores[0]['EER'] < best_eval_criterion['EER']) or (groups[0] == "eval"):
         best_eval_criterion['EER'] = scores[0]['EER']

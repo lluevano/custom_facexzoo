@@ -58,12 +58,12 @@ def measure_bob_scores(fname):
     # bob.measure.farfrr(negatives, positives, threshold)
     score_dict = {'R1': R1, 'EER': EER, 'AUC': AUC}
     return score_dict
-def score_bob_model(model, db_name="tinyface", out_dir="/idiap/temp/lluevano/DEBUG_TINYFACE_DASK", groups=["dev",], epoch="last", device='cuda', dask_client=None):
+def score_bob_model(model, db_name="tinyface", out_dir="/idiap/temp/lluevano/DEBUG_TINYFACE_DASK", groups=["dev",], epoch="last", device=None, dask_client=None):
     #Run scores pipeline
 
     #  FaceXZoo model has the backbone and head modules. We select the backbone for verification
     backbone = model
-    bob_model = MyModel(device=torch.device("cpu"))
+    bob_model = MyModel(device=device if device else torch.device("cpu"))
     bob_model.pass_module(backbone)
 
     transformer = [('embedding', wrap(["sample"], bob_model))]

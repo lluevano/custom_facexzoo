@@ -3,7 +3,7 @@
 
 ## Sun's Grid Engine parameters
 # ... job name
-#$ -N Pytorch-FT-Survface
+#$ -N Pytorch-FT-Tinyface
 # ... make sure to use proper shell
 #$ -S /bin/bash
 # ... e-mail address to send notifications
@@ -18,22 +18,22 @@
 source /idiap/home/lluevano/mambaforge-pypy3/bin/activate
 conda activate /idiap/temp/lluevano/my_envs/train_env_bob/
 
+## export LD_LIBRARY_PATH="/idiap/resource/software/sge/stable/NCCL/lx-amd64/cuda10.0/":$LD_LIBRARY_PATH
 ## Job
 
-eval_set="survface"
-prefix="ft_survface_verification"
-network="IResNet"
-depth="100"
-n_unfrozen_layers=7
+## eval_set="tinyface"
+prefix="scratch_emore"
+network="MobileFaceNet"
+depth=""
 lr=0.1
 loss="ArcFace"
 
-full_prefix="${prefix}/${network}${depth}/${loss}_nf${n_unfrozen_layers}_lr_${lr}"
+full_prefix="${prefix}/${network}${depth}/${loss}_lr_${lr}"
 mkdir -p ${full_prefix}
 
 python train.py \
-    --data_root '/idiap/temp/lluevano/QMUL-SurvFace/resized/' \
-    --train_file './survface_train_list.lst' \
+    --data_root '/idiap/home/lluevano/my_databases/DataZoo_MS1M-ArcFace/' \
+    --train_file '/idiap/home/lluevano/my_databases/DataZoo_MS1M-ArcFace/tensorflow/faces_emore.tfrecord' \
     --backbone_type "${network}" \
     --backbone_conf_file '../backbone_conf.yaml' \
     --head_type "${loss}" \
@@ -44,14 +44,10 @@ python train.py \
     --step '10, 13, 16' \
     --print_freq 200 \
     --save_freq 3000 \
-    --batch_size 64 \
+    --batch_size 128 \
     --momentum 0.9 \
     --log_dir "${full_prefix}" \
-    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/iresnet-91a5de61/iresnet100-73e07ba7.pth' --resume\
     --tensorboardx_logdir 'mv-hrnet' \
-    --fine_tune True \
-    --n_unfrozen_layers ${n_unfrozen_layers} \
-    --eval_set survface \
     2>&1 | tee "${full_prefix}/log.log"
 
 

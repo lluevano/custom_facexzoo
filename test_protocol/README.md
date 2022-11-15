@@ -1,4 +1,38 @@
-# Face evaluation protocal
+# Face evaluation protocol
+
+## Bob evaluations
+
+The main way to evaluate the checkpoints using Bob is to evaluate all the checkpoints in a folder.
+
+To run the sample configuration "run_bob_dask_folder.sh":
+1. Run "SETSHELL grid" in the terminal
+2. Activate your bob conda environment
+3. Edit the settings in "run_bob_dask_folder.sh"
+4. Run "bash run_bob_dask_folder.sh"
+
+The script runs the "load_facexzoo_model.py" routine.
+The minimum settings are:
+- --backbone_type: Backbone as defined in "../training_mode/backbone_config.py". The ".yaml" files can be specified. The FaceModel class used is the same as in "../training_mode/conventional_training/train.py"
+- --out_dir: Folder containing the pytorch checkpoints and output folder for the evaluation files.
+- --eval_set: Bob evaluation set, as defined in "bob_test_protocol.py". Currently, only the "survface" and "tinyface" options are available.
+
+This evaluation generates two files: "best_dev.pickle" and "best_eval.pickle" with the RR1, EER, and AUC values and the epoch of the best EER value found in the dev set and that same model is the only one evaluated on the eval set.
+It also generates the csv score files in "out_dir".
+
+## Important: Output directory convention
+The output directory convention is important when using the standalone evaluation scripts at the "../../test_protocol/" folder.
+The convention is: `"{loss_function}_nf{n_unfrozen_layers}_lr_{lr}"`; for example: `ContrastiveLoss_nf72_lr_0.1`
+This is because this information is decoded in "load_facexzoo_model.py" to save the information in the pickle files for easier result compilation.
+
+## Result compilation
+
+To compile the results, the script "get_best_bob_evals.py" can be used. The "pickle jar" variables can be modified with wildcards to load the "best_dev.pickle" and "best_eval.pickle" files, order them by ascending EER order, and show the top-K EER models.
+
+## Using dask
+By default, the evaluations are run with a SGE_IO_BIG dask client. This can be changed in the create_dask_client function inside "load_facexzoo_model.py". The SGE grid project must be specified there as well. It is hard-coded to "scbiometrics".
+
+* * *
+The rest of this README file comes by default from the original FaceXZoo repository.
 ## Test Data Preparation
 ### LFW  
 * Test images download: http://vis-www.cs.umass.edu/lfw/lfw.tgz

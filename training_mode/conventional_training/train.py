@@ -14,7 +14,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 sys.path.append('../../')
-from test_protocol.bob_test_protocol import score_bob_model
+from test_protocol.bob_test_protocol import score_bob_model, measure_bob_scores
 
 from utils.AverageMeter import AverageMeter
 from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset)
@@ -26,7 +26,6 @@ logger.basicConfig(level=logger.INFO,
                    format='%(levelname)s %(asctime)s %(filename)s: %(lineno)d] %(message)s',
                    datefmt='%Y-%m-%d %H:%M:%S')
 import math
-
 import pickle
 
 class FaceModel(torch.nn.Module):
@@ -96,6 +95,31 @@ def unfreeze_first_n_layers(model, n_layers):
 
     _dfs_unfreeze(model, 0, n_layers)
 
+def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, dask_client=None, groups=["dev",], device=None):
+    #  Add verification using bob
+    eval_model = model
+    eval_model.use_head = False
+    #logging.info("Looking for "+os.path.join(conf.out_dir,f"scores-{groups[0]}-{cur_epoch}.csv"))
+    #logging.info(os.path.isfile(os.path.join(conf.out_dir,f"scores-{groups[0]}-{cur_epoch}.csv")))
+    if os.path.isfile(os.path.join(conf.out_dir,f"scores-{groups[0]}-{cur_epoch}.csv")):
+        logger.info(f"File scores-{groups[0]}-{cur_epoch}.csv found. Skipping bob pipeline computation")
+        scores_dict = measure_bob_scores(os.path.join(conf.out_dir, f"scores-{groups[0]}-{cur_epoch}.csv"))
+        print(scores_dict)
+        scores = [scores_dict]
+    else:
+        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=groups, out_dir=conf.out_dir, epoch=cur_epoch, device=device, dask_client=dask_client)
+
+    if (scores[0]['EER'] < best_eval_criterion['EER']) or (groups[0] == "eval"):
+        best_eval_criterion['EER'] = scores[0]['EER']
+        best_eval_criterion['epoch'] = cur_epoch
+        with open(os.path.join(conf.out_dir,f'best_{groups[0]}.pickle'), 'wb') as handle:
+            new_conf = extra_attrs
+            for k, v in vars(conf).items():
+                if not (k in ('writer', 'device','head_type')):
+                    new_conf[k] = v
+            pickle.dump({'conf': new_conf, 'scores': scores, 'epoch': cur_epoch}, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    return scores
+
 def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf, best_eval_criterion):
     """Tain one epoch by traditional training.
     """
@@ -146,22 +170,9 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
 
     #  Add verification using bob
     if conf.eval_set:
-        eval_model = model.module
+        eval_model = model.module if isinstance(model, torch.nn.DataParallel) else model
         eval_model.use_head = False
-        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev",], out_dir=conf.out_dir, epoch=cur_epoch)
-        if scores[0]['EER'] < best_eval_criterion['EER']:
-            best_eval_criterion['EER'] = scores[0]['EER']
-            best_eval_criterion['epoch'] = cur_epoch
-            logger.info(f"Best EER yet for dev set found at epoch {cur_epoch}")
-            #np.save('best.npy', {'conf': conf, 'scores': scores, 'epoch': cur_epoch})
-            with open(os.path.join(conf.out_dir,'best_dev.pickle'), 'wb') as handle:
-                new_conf = {}
-                for k, v in vars(conf).items():
-                    if not (k in ('writer', 'device')):
-                        new_conf[k] = v
-                pickle.dump({'conf': new_conf, 'scores': scores, 'epoch': cur_epoch}, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #model = torch.nn.DataParallel(model).cuda()
-        #model.train()
+        _ = run_verification(eval_model, cur_epoch, conf, best_eval_criterion, {'head_type': conf.head_type}, dask_client=None, groups=["dev",], device=conf.device)
         eval_model.use_head = True
         eval_model.train()
         logger.info('End verification')
@@ -180,20 +191,20 @@ def train(conf):
     else:
         data_loader = DataLoader(ImageDataset(conf.data_root, conf.train_file),
                                  conf.batch_size, True, num_workers=4)
-    conf.device = torch.device('cuda:0')
-    criterion = torch.nn.CrossEntropyLoss().cuda(conf.device)
+    conf.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    criterion = torch.nn.CrossEntropyLoss().cuda(conf.device) if torch.cuda.is_available() else torch.nn.CrossEntropyLoss()
     backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file)    
     head_factory = HeadFactory(conf.head_type, conf.head_conf_file)
     module_factory = ModuleFactory(conf.module_type, conf.module_conf_file) if conf.module_type else None
     model = FaceModel(backbone_factory, head_factory, module_factory)
     ori_epoch = 0
     if conf.resume:
-        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model)['epoch'] # TODO catch keyerror
+        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model, map_location=conf.device)['epoch'] # TODO catch keyerror
         ori_epoch += 1
         try:
-            state_dict = torch.load(args.pretrain_model, map_location=torch.device('cpu'))['state_dict']
+            state_dict = torch.load(args.pretrain_model, map_location=conf.device)['state_dict']
         except KeyError: #  format is likely not to come from facexzoo
-            state_dict = torch.load(args.pretrain_model, map_location=torch.device('cpu'))
+            state_dict = torch.load(args.pretrain_model, map_location=conf.device)
             assert type(state_dict) == dict
             new_state_dict = {}
             for k, v in state_dict.items():
@@ -205,16 +216,16 @@ def train(conf):
             #print(state_dict['head.weight'])
             del state_dict['head.weight']
         logger.info(model.load_state_dict(state_dict, strict=False))
-        #  unfreeze layers
+        #  freeze and unfreeze some layers
         if conf.fine_tune and (not (conf.n_unfrozen_layers is None)):
-            unfreeze_first_n_layers(model, conf.n_unfrozen_layers)
-            if conf.module_type:
+            unfreeze_first_n_layers(model, conf.n_unfrozen_layers) # also affects prev_module
+            if conf.module_type: # Unfreezing prev_module
                 for name, param in model.named_parameters():
                     if name.startswith("prev_module"):
                         param.requires_grad = True
                         logger.info(f"Unfrozen parameter {name}")
 
-    model = torch.nn.DataParallel(model)#.cuda()
+    model = torch.nn.DataParallel(model).cuda() if torch.cuda.is_available() else model
 
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.SGD(parameters, lr = conf.lr, 
@@ -224,15 +235,14 @@ def train(conf):
     loss_meter = AverageMeter()
     model.train()
     best_eval_criterion={'EER': math.inf}
-    #  Finished training
-    if conf.eval_set:
-        logger.info("Starting point on dev set")
-        eval_model = model.module
-        eval_model.use_head = False
-        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev"], out_dir=conf.out_dir, epoch="start")
-        logger.info(f"{scores}")
-        eval_model.use_head = True
-        eval_model.train()
+    #if conf.eval_set:
+    #    logger.info("Starting point on dev set")
+    #    eval_model = model.module
+    #    eval_model.use_head = False
+    #    scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev"], out_dir=conf.out_dir, epoch="start")
+    #    logger.info(f"{scores}")
+    #    eval_model.use_head = True
+    #    eval_model.train()
         #logger.info("End verification")
 
     for epoch in range(ori_epoch, conf.epoches):
@@ -245,21 +255,14 @@ def train(conf):
         logger.info("Running final verification on eval set for best EER")
         # load best model
         best_saved_name = 'Epoch_%d.pt' % best_eval_criterion['epoch']
-        state_dict = torch.load(os.path.join(args.out_dir, best_saved_name))['state_dict']
-        model.module.load_state_dict(state_dict, strict=False)
-        eval_model = model.module
+        state_dict = torch.load(os.path.join(args.out_dir, best_saved_name), map_location=conf.device)['state_dict']
+        eval_model = model.module if isinstance(model,torch.nn.DataParallel) else model
+        eval_model.load_state_dict(state_dict, strict=False)
         eval_model.use_head = False
-        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["eval"], out_dir=conf.out_dir, epoch=best_eval_criterion['epoch'])
+        scores = run_verification(eval_model, best_eval_criterion['epoch'], conf, best_eval_criterion, {'head_type': conf.head_type}, dask_client=None, groups=["eval",], device=conf.device)
         logger.info("End verification")
         logger.info(f"The best dev EER score was {best_eval_criterion['EER']} at epoch {best_eval_criterion['epoch']}")
         logger.info(f"The eval scores for the best model found are {scores}")
-        with open(os.path.join(conf.out_dir, 'best_dev_eval.pickle'), 'wb') as handle:
-            new_conf = {}
-            for k, v in vars(conf).items():
-                if not (k in ('writer', 'device')):
-                    new_conf[k] = v
-            pickle.dump({'conf': new_conf, 'scores': scores, 'epoch': best_eval_criterion['epoch']}, handle,
-                        protocol=pickle.HIGHEST_PROTOCOL)
 
 if __name__ == '__main__':
     conf = argparse.ArgumentParser(description='traditional_training for face recognition.')
