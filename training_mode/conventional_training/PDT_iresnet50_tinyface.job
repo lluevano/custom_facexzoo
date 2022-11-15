@@ -1,0 +1,58 @@
+#!/bin/bash
+# WARNING: You MUST use bash to prevent errors
+
+## Sun's Grid Engine parameters
+# ... job name
+#$ -N Pytorch-FT-Tinyface
+# ... make sure to use proper shell
+#$ -S /bin/bash
+# ... e-mail address to send notifications
+#$ -M luis.luevano@idiap.ch
+#$ -P scbiometrics
+# ... use current working directory for output
+#$ -cwd
+#. /idiap/resource/software/initfiles/shrc
+#SETSHELL grid
+
+
+source /idiap/home/lluevano/mambaforge-pypy3/bin/activate
+conda activate /idiap/temp/lluevano/my_envs/train_env_bob/
+
+## Job
+
+eval_set="tinyface"
+prefix="PDT_ft_tinyface"
+network="IResNet"
+depth="50"
+n_unfrozen_layers=0
+lr=0.1
+loss="ArcFace"
+
+full_prefix="${prefix}/${network}${depth}/${loss}_nf${n_unfrozen_layers}_lr_${lr}"
+mkdir -p ${full_prefix}
+
+python train.py \
+    --data_root '/idiap/temp/lluevano/tinyface/resized/' \
+    --train_file './tinyface_train_list.lst' \
+    --backbone_type "${network}" \
+    --backbone_conf_file '../backbone_conf.yaml' \
+    --head_type "${loss}" \
+    --head_conf_file '../head_conf.yaml' \
+    --module_type 'PDT' \
+    --lr ${lr} \
+    --out_dir "${full_prefix}"\
+    --epoches 19 \
+    --step '10, 13, 16' \
+    --print_freq 200 \
+    --save_freq 3000 \
+    --batch_size 128 \
+    --momentum 0.9 \
+    --log_dir "${full_prefix}" \
+    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/iresnet-91a5de61/iresnet50-7f187506.pth' --resume\
+    --tensorboardx_logdir 'mv-hrnet' \
+    --fine_tune True \
+    --n_unfrozen_layers ${n_unfrozen_layers} \
+    --eval_set "${eval_set}" \
+    2>&1 | tee "${full_prefix}/log.log"
+
+

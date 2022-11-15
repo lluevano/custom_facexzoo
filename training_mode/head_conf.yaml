@@ -19,10 +19,10 @@ AM-Softmax:
 
 ArcFace:
     feat_dim: 512
-    num_class: 1799
+    num_class: 3723 #1799 TinyFace, 3723 SurvFace, 85742 Emore
     margin_arc: 0.35
     margin_am: 0.0
-    scale: 32
+    scale: 64
 
 MagFace:
     feat_dim: 512

@@ -16,16 +16,18 @@ from tensorboardX import SummaryWriter
 sys.path.append('../../')
 from test_protocol.bob_test_protocol import score_bob_model
 
-
 from utils.AverageMeter import AverageMeter
 from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset)
 from backbone.backbone_def import BackboneFactory
 from head.head_def import HeadFactory
+from modules.module_def import ModuleFactory
 
 logger.basicConfig(level=logger.INFO, 
                    format='%(levelname)s %(asctime)s %(filename)s: %(lineno)d] %(message)s',
                    datefmt='%Y-%m-%d %H:%M:%S')
 import math
+
+import pickle
 
 class FaceModel(torch.nn.Module):
     """Define a traditional face model which contains a backbone and a head.
@@ -34,7 +36,7 @@ class FaceModel(torch.nn.Module):
         backbone(object): the backbone of face model.
         head(object): the head of face model.
     """
-    def __init__(self, backbone_factory, head_factory):
+    def __init__(self, backbone_factory, head_factory, module_factory):
         """Init face model by backbone factorcy and head factory.
         
         Args:
@@ -42,12 +44,14 @@ class FaceModel(torch.nn.Module):
             head_factory(object): produce a head according to config files.
         """
         super(FaceModel, self).__init__()
+        self.prev_module = module_factory.get_module() if module_factory else None
         self.backbone = backbone_factory.get_backbone()
         self.head = head_factory.get_head()
-
-    def forward(self, data, label):
-        feat = self.backbone.forward(data)
-        pred = self.head.forward(feat, label)
+        self.use_head = True
+    def forward(self, data, label=None):
+        preprocessed_data = data if not self.prev_module else self.prev_module.forward(data)
+        feat = self.backbone.forward(preprocessed_data)
+        pred = self.head.forward(feat, label) if self.use_head else feat
         return pred
 
 def get_lr(optimizer):
@@ -92,7 +96,7 @@ def unfreeze_first_n_layers(model, n_layers):
 
     _dfs_unfreeze(model, 0, n_layers)
 
-def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf, best_criterion):
+def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf, best_eval_criterion):
     """Tain one epoch by traditional training.
     """
     for batch_idx, (images, labels) in enumerate(data_loader):
@@ -141,39 +145,55 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
     logger.info('Save checkpoint %s to disk...' % saved_name)
 
     #  Add verification using bob
-    model = model.module
-    eval_model = torch.nn.DataParallel(model.backbone).cuda()
-    scores = score_bob_model(eval_model, groups=["dev",], out_dir=conf.out_dir, epoch=cur_epoch)
-    if scores[0]['EER'] < best_criterion['EER']:
-        best_criterion['EER'] = scores[0]['EER']
-        best_criterion['epoch'] = cur_epoch
-        print(f"Best EER yet for dev set found at epoch {cur_epoch}")
-    model = torch.nn.DataParallel(model).cuda()
-    model.train()
-    logger.info('End verification')
+    if conf.eval_set:
+        eval_model = model.module
+        eval_model.use_head = False
+        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev",], out_dir=conf.out_dir, epoch=cur_epoch)
+        if scores[0]['EER'] < best_eval_criterion['EER']:
+            best_eval_criterion['EER'] = scores[0]['EER']
+            best_eval_criterion['epoch'] = cur_epoch
+            logger.info(f"Best EER yet for dev set found at epoch {cur_epoch}")
+            #np.save('best.npy', {'conf': conf, 'scores': scores, 'epoch': cur_epoch})
+            with open(os.path.join(conf.out_dir,'best_dev.pickle'), 'wb') as handle:
+                new_conf = {}
+                for k, v in vars(conf).items():
+                    if not (k in ('writer', 'device')):
+                        new_conf[k] = v
+                pickle.dump({'conf': new_conf, 'scores': scores, 'epoch': cur_epoch}, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        #model = torch.nn.DataParallel(model).cuda()
+        #model.train()
+        eval_model.use_head = True
+        eval_model.train()
+        logger.info('End verification')
 def train(conf):
     """Total training procedure.
     """
     if conf.train_file.endswith('.tfrecord'): #  Adapted code to read tfrecord
         idx_file_path = os.path.join(conf.data_root, 'mxnet', 'train.idx')
         tfrecord_iterable_db = load_tfrecord_dataset(tfrecord_path=conf.train_file, index_path=idx_file_path)
-        data_loader = DataLoader(tfrecord_iterable_db,conf.batch_size, True, num_workers = 4)
+        data_loader = DataLoader(tfrecord_iterable_db, 1, num_workers=4, prefetch_factor=1)
+        from torch.utils.data.datapipes.iter.combinatorics import ShufflerIterDataPipe
+        shuffled = ShufflerIterDataPipe(data_loader, buffer_size=conf.batch_size)
+        data_loader = DataLoader(shuffled,
+                          batch_size=conf.batch_size,
+                          num_workers=0)
     else:
         data_loader = DataLoader(ImageDataset(conf.data_root, conf.train_file),
-                                 conf.batch_size, True, num_workers = 4)
+                                 conf.batch_size, True, num_workers=4)
     conf.device = torch.device('cuda:0')
     criterion = torch.nn.CrossEntropyLoss().cuda(conf.device)
     backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file)    
     head_factory = HeadFactory(conf.head_type, conf.head_conf_file)
-    model = FaceModel(backbone_factory, head_factory)
+    module_factory = ModuleFactory(conf.module_type, conf.module_conf_file) if conf.module_type else None
+    model = FaceModel(backbone_factory, head_factory, module_factory)
     ori_epoch = 0
     if conf.resume:
         ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model)['epoch'] # TODO catch keyerror
         ori_epoch += 1
         try:
-            state_dict = torch.load(args.pretrain_model)['state_dict']
+            state_dict = torch.load(args.pretrain_model, map_location=torch.device('cpu'))['state_dict']
         except KeyError: #  format is likely not to come from facexzoo
-            state_dict = torch.load(args.pretrain_model)
+            state_dict = torch.load(args.pretrain_model, map_location=torch.device('cpu'))
             assert type(state_dict) == dict
             new_state_dict = {}
             for k, v in state_dict.items():
@@ -182,13 +202,19 @@ def train(conf):
                     new_state_dict[new_k_prefix+k] = v
             state_dict = new_state_dict
         if conf.fine_tune and ('head.weight' in state_dict.keys()):
+            #print(state_dict['head.weight'])
             del state_dict['head.weight']
-        print(model.load_state_dict(state_dict, strict=False))
+        logger.info(model.load_state_dict(state_dict, strict=False))
         #  unfreeze layers
-        if conf.fine_tune and conf.n_unfrozen_layers:
+        if conf.fine_tune and (not (conf.n_unfrozen_layers is None)):
             unfreeze_first_n_layers(model, conf.n_unfrozen_layers)
+            if conf.module_type:
+                for name, param in model.named_parameters():
+                    if name.startswith("prev_module"):
+                        param.requires_grad = True
+                        logger.info(f"Unfrozen parameter {name}")
 
-    model = torch.nn.DataParallel(model).cuda()
+    model = torch.nn.DataParallel(model)#.cuda()
 
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.SGD(parameters, lr = conf.lr, 
@@ -197,15 +223,43 @@ def train(conf):
         optimizer, milestones = conf.milestones, gamma = 0.1)
     loss_meter = AverageMeter()
     model.train()
-    best_criterion={'EER': math.inf}
+    best_eval_criterion={'EER': math.inf}
+    #  Finished training
+    if conf.eval_set:
+        logger.info("Starting point on dev set")
+        eval_model = model.module
+        eval_model.use_head = False
+        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev"], out_dir=conf.out_dir, epoch="start")
+        logger.info(f"{scores}")
+        eval_model.use_head = True
+        eval_model.train()
+        #logger.info("End verification")
+
     for epoch in range(ori_epoch, conf.epoches):
         train_one_epoch(data_loader, model, optimizer, 
-                        criterion, epoch, loss_meter, conf, best_criterion)
+                        criterion, epoch, loss_meter, conf, best_eval_criterion)
         lr_schedule.step()
     #  Finished training
-    logger.info("Running final verification on eval set")
-    scores = score_bob_model(torch.nn.DataParallel(model.module.backbone).cuda(), groups=["eval"], out_dir=conf.out_dir)
-    print("End verification")
+
+    if conf.eval_set:
+        logger.info("Running final verification on eval set for best EER")
+        # load best model
+        best_saved_name = 'Epoch_%d.pt' % best_eval_criterion['epoch']
+        state_dict = torch.load(os.path.join(args.out_dir, best_saved_name))['state_dict']
+        model.module.load_state_dict(state_dict, strict=False)
+        eval_model = model.module
+        eval_model.use_head = False
+        scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["eval"], out_dir=conf.out_dir, epoch=best_eval_criterion['epoch'])
+        logger.info("End verification")
+        logger.info(f"The best dev EER score was {best_eval_criterion['EER']} at epoch {best_eval_criterion['epoch']}")
+        logger.info(f"The eval scores for the best model found are {scores}")
+        with open(os.path.join(conf.out_dir, 'best_dev_eval.pickle'), 'wb') as handle:
+            new_conf = {}
+            for k, v in vars(conf).items():
+                if not (k in ('writer', 'device')):
+                    new_conf[k] = v
+            pickle.dump({'conf': new_conf, 'scores': scores, 'epoch': best_eval_criterion['epoch']}, handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
 
 if __name__ == '__main__':
     conf = argparse.ArgumentParser(description='traditional_training for face recognition.')
@@ -213,14 +267,18 @@ if __name__ == '__main__':
                       help = "The root folder of training set.")
     conf.add_argument("--train_file", type = str,  
                       help = "The training file path.")
-    conf.add_argument("--backbone_type", type = str, 
+    conf.add_argument("--backbone_type", type = str,
                       help = "Mobilefacenets, Resnet.")
-    conf.add_argument("--backbone_conf_file", type = str, 
+    conf.add_argument("--backbone_conf_file", type = str, default='../backbone_conf.yaml',
                       help = "the path of backbone_conf.yaml.")
-    conf.add_argument("--head_type", type = str, 
+    conf.add_argument("--head_type", type = str,
                       help = "mv-softmax, arcface, npc-face.")
-    conf.add_argument("--head_conf_file", type = str, 
+    conf.add_argument("--head_conf_file", type = str, default='../head_conf.yaml',
                       help = "the path of head_conf.yaml.")
+    conf.add_argument('--module_type', default=None,
+                      help='Specify the pre-processing module')
+    conf.add_argument('--module_conf_file', type=str, default='../module_conf.yaml',
+                      help="the path of module_conf.yaml.")
     conf.add_argument('--lr', type = float, default = 0.1, 
                       help='The initial learning rate.')
     conf.add_argument("--out_dir", type = str, 
@@ -248,7 +306,10 @@ if __name__ == '__main__':
     conf.add_argument('--fine_tune', '-ft', type=bool, default=False,
                       help='Specify if fine tuning to another dataset.')
     conf.add_argument('--n_unfrozen_layers', type=float, default=None,
-                      help='Specify the rate of trainable parameters.')
+                      help='Specify the number of trainable layers')
+    conf.add_argument('--eval_set', type=str, default=None,
+                      help='Specify the bob eval set')
+
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]
     if not os.path.exists(args.out_dir):

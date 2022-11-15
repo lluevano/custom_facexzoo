@@ -1,11 +1,9 @@
-.idea*
-/training_mode/*/*.e*
-/training_mode/*/*.o*
-/training_mode/conventional_training/ft_tinyface/*
-/training_mode/*/out_dir/*
-/training_mode/*/log/*
+.idea/*
+training_mode/*/*.e*
+training_mode/*/*.o*
+training_mode/*/*/*
 *.log
 *.pt
-*/__pycache__/*
+__pycache__
 *.pyc
-/training_mode/conventional_training/ft_tinyface_verification/
+test_protocol/logs/*

@@ -16,28 +16,29 @@
 
 
 source /idiap/home/lluevano/mambaforge-pypy3/bin/activate
-conda activate /idiap/temp/lluevano/my_envs/train_env/
+conda activate /idiap/temp/lluevano/my_envs/train_env_bob/
 
-## export LD_LIBRARY_PATH="/idiap/resource/software/sge/stable/NCCL/lx-amd64/cuda10.0/":$LD_LIBRARY_PATH
 ## Job
 
-prefix="ft_tinyface"
-network="MobileFaceNet"
-depth=""
-not_freeze_rate=1.0
-lr=0.001
-loss="ContrastiveLoss"
+eval_set="survface"
+prefix="PDT_ft_survface"
+network="IResNet"
+depth="50"
+n_unfrozen_layers=0
+lr=0.1
+loss="ArcFace"
 
-full_prefix="${prefix}/${network}${depth}/${loss}_nf${not_freeze_rate}_lr_${lr}"
+full_prefix="${prefix}/${network}${depth}/${loss}_nf${n_unfrozen_layers}_lr_${lr}"
 mkdir -p ${full_prefix}
 
 python train.py \
-    --data_root '/idiap/temp/lluevano/tinyface/resized/' \
-    --train_file './tinyface_train_list.lst' \
+    --data_root '/idiap/temp/lluevano/QMUL-SurvFace/resized/' \
+    --train_file './survface_train_list.lst' \
     --backbone_type "${network}" \
     --backbone_conf_file '../backbone_conf.yaml' \
     --head_type "${loss}" \
     --head_conf_file '../head_conf.yaml' \
+    --module_type 'PDT' \
     --lr ${lr} \
     --out_dir "${full_prefix}"\
     --epoches 19 \
@@ -47,10 +48,10 @@ python train.py \
     --batch_size 128 \
     --momentum 0.9 \
     --log_dir "${full_prefix}" \
-    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/MobileFaceNet-ca475a8d.pt.tar.gz/MobileFaceNet.pt' --resume\
+    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/iresnet-91a5de61/iresnet50-7f187506.pth' --resume\
     --tensorboardx_logdir 'mv-hrnet' \
     --fine_tune True \
-    --not_freeze_rate ${not_freeze_rate} \
+    --n_unfrozen_layers ${n_unfrozen_layers} \
     2>&1 | tee "${full_prefix}/log.log"
 
 

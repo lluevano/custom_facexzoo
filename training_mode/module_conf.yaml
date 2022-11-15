@@ -1,0 +1,13 @@
+PDT:
+    in_channels: 3
+    pool_features: 6
+    use_se: False
+    use_bias: False
+    use_cbam: True
+
+RRBDNet:
+    in_nc = 3
+    out_nc = 3
+    nf = 64
+    nb = 23
+    gc = 32

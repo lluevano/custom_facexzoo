@@ -2,9 +2,29 @@
 
 FaceXZoo modifications for idiap by Luis Luevano
 
-<img src="./data/images/logo.png" width="150" >
+## Modules and Backbones
+
+- Backbones:
+  - Added IResNet34, IResNet50, and IResNet100. Change depth parameter on training_mode/backbone_conf.yml 
+  
+- Previous modules: 
+  - Added "modules" folder to train using learning/processing pytorch modules before the backbone
+  - Added PDT-ID module
+
+## Training mode
+
+- Added ".job" scripts to train in the SGE grid (training_mode/conventional_training folder)
+- Added the ability to freeze the whole backbone and head weights and only unfreeze a determined amount of layers.
+- Added flag for fine-tunning (different from resume training)
+- Added verification after training epoch
+
+## Evaluation
+
+- Evaluation scripts for Bob pipelines available in test_protocol folder
 
 # FaceX-Zoo
+<img src="./data/images/logo.png" width="150" >
+
 FaceX-Zoo is a PyTorch toolbox for face recognition. It provides a training module with various supervisory heads and backbones towards state-of-the-art face recognition, as well as a standardized evaluation module which enables to evaluate the models in most of the popular benchmarks just by editing a simple configuration. Also, a simple yet fully functional face SDK is provided for the validation and primary application of the trained models. Rather than including as many as possible of the prior techniques, we enable FaceX-Zoo to easilyupgrade and extend along with the development of face related domains. Please refer to the [technical report](https://arxiv.org/pdf/2101.04407.pdf) for more detailed information about this project.
   
 About the name:
