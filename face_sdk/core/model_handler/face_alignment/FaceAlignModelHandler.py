@@ -4,7 +4,7 @@
 @contact: jun21wangustc@gmail.com 
 """
 import logging.config
-logging.config.fileConfig("config/logging.conf")
+logging.config.fileConfig("../config/logging.conf")
 logger = logging.getLogger('sdk')
 
 import cv2
@@ -12,8 +12,8 @@ import torch
 import numpy as np
 import torch.backends.cudnn as cudnn
 
-from core.model_handler.BaseModelHandler import BaseModelHandler
-from utils.BuzException import *
+from face_sdk.core.model_handler.BaseModelHandler import BaseModelHandler
+from face_sdk.utils.BuzException import *
 from torchvision import transforms
 
 class FaceAlignModelHandler(BaseModelHandler):

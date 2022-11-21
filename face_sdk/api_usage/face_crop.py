@@ -13,7 +13,7 @@ logging.config.fileConfig("config/logging.conf")
 logger = logging.getLogger('api')
 import cv2
 
-from core.image_cropper.arcface_cropper.FaceRecImageCropper import FaceRecImageCropper
+from face_sdk.core.image_cropper.arcface_cropper.FaceRecImageCropper import FaceRecImageCropper
 
 if __name__ == '__main__':
     image_path = 'api_usage/test_images/test1.jpg'

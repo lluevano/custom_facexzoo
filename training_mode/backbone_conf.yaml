@@ -9,7 +9,7 @@ ShuffleFaceNet:
     depth: 1.5
 
 IResNet:
-  depth: 100 #50 and 100 only
+  depth: 50 #50 and 100 only
   feat_dim: 512
 
 ResNet:

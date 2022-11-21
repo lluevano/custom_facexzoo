@@ -17,7 +17,7 @@ sys.path.append('../../')
 from test_protocol.bob_test_protocol import score_bob_model, measure_bob_scores
 
 from utils.AverageMeter import AverageMeter
-from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset)
+from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset, ImageDataset_HFR)
 from backbone.backbone_def import BackboneFactory
 from head.head_def import HeadFactory
 from modules.module_def import ModuleFactory
@@ -45,12 +45,18 @@ class FaceModel(torch.nn.Module):
         super(FaceModel, self).__init__()
         self.prev_module = module_factory.get_module() if module_factory else None
         self.backbone = backbone_factory.get_backbone()
-        self.head = head_factory.get_head()
+        self.head = head_factory.get_head() if head_factory else None
         self.use_head = True
-    def forward(self, data, label=None):
-        preprocessed_data = data if not self.prev_module else self.prev_module.forward(data)
+        self.use_prev_module = True #passthrough, basically
+    def forward(self, data, label=None, ref=None):
+        preprocessed_data = self.prev_module.forward(data) if self.prev_module and self.use_prev_module else data
         feat = self.backbone.forward(preprocessed_data)
-        pred = self.head.forward(feat, label) if self.use_head else feat
+        if ref: # HFR Training. Skipping backbone
+            assert (self.head.head_type == 'ContrastiveLoss')
+            feat_ref = self.backbone.forward(ref)
+            pred = self.head.forward(feat, labels=label, ref_emb=feat_ref, ref_labels=label)
+        else:
+            pred = self.head.forward(feat, label) if self.use_head else feat
         return pred
 
 def get_lr(optimizer):
@@ -123,8 +129,14 @@ def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, d
 def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf, best_eval_criterion):
     """Tain one epoch by traditional training.
     """
-    for batch_idx, (images, labels) in enumerate(data_loader):
-        images = images.to(conf.device)
+    for batch_idx, (images_dl, labels) in enumerate(data_loader):
+        #print(len(images_dl))
+        #print(type(images_dl))
+        if isinstance(images_dl, list):
+            images = images_dl[0].to(conf.device)
+            images_ref = images_dl[1].to(conf.device)
+        else:
+            images = images_dl.to(conf.device)
         labels = labels.to(conf.device)
         labels = labels.squeeze()
         if conf.head_type == 'AdaM-Softmax':
@@ -136,7 +148,10 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
             loss_g = torch.mean(loss_g)
             loss = criterion(outputs, labels) + loss_g
         elif conf.head_type == 'ContrastiveLoss':
-            loss = model.forward(images, labels)
+            if isinstance(images_dl, tuple): #HFR training
+                loss = model.forward(images, labels, ref=images_ref)
+            else:
+                loss = model.forward(images, labels, ref=None)
         else:
             outputs = model.forward(images, labels)
             loss = criterion(outputs, labels)
@@ -163,7 +178,7 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
             torch.save(state, os.path.join(conf.out_dir, saved_name))
             logger.info('Save checkpoint %s to disk.' % saved_name)
     saved_name = 'Epoch_%d.pt' % cur_epoch
-    state = {'state_dict': model.module.state_dict(), 
+    state = {'state_dict': model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict(),
              'epoch': cur_epoch, 'batch_id': batch_idx}
     torch.save(state, os.path.join(conf.out_dir, saved_name))
     logger.info('Save checkpoint %s to disk...' % saved_name)
@@ -179,15 +194,18 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
 def train(conf):
     """Total training procedure.
     """
-    if conf.train_file.endswith('.tfrecord'): #  Adapted code to read tfrecord
+    if conf.ref_file:
+        data_loader = DataLoader(ImageDataset_HFR(conf.data_root, conf.train_file, conf.ref_file),
+                                 conf.batch_size, True, num_workers=4)
+    elif conf.train_file.endswith('.tfrecord'): #  Adapted code to read tfrecord
         idx_file_path = os.path.join(conf.data_root, 'mxnet', 'train.idx')
         tfrecord_iterable_db = load_tfrecord_dataset(tfrecord_path=conf.train_file, index_path=idx_file_path)
-        data_loader = DataLoader(tfrecord_iterable_db, 1, num_workers=4, prefetch_factor=1)
-        from torch.utils.data.datapipes.iter.combinatorics import ShufflerIterDataPipe
-        shuffled = ShufflerIterDataPipe(data_loader, buffer_size=conf.batch_size)
-        data_loader = DataLoader(shuffled,
+        #data_loader = DataLoader(tfrecord_iterable_db, 1, num_workers=4, prefetch_factor=1)
+        #from torch.utils.data.datapipes.iter.combinatorics import ShufflerIterDataPipe # Not working
+        #shuffled = ShufflerIterDataPipe(data_loader, buffer_size=conf.batch_size)
+        data_loader = DataLoader(tfrecord_iterable_db, # TODO: Shuffle tfrecord dataset
                           batch_size=conf.batch_size,
-                          num_workers=0)
+                          num_workers=4)
     else:
         data_loader = DataLoader(ImageDataset(conf.data_root, conf.train_file),
                                  conf.batch_size, True, num_workers=4)
@@ -259,9 +277,9 @@ def train(conf):
         eval_model = model.module if isinstance(model,torch.nn.DataParallel) else model
         eval_model.load_state_dict(state_dict, strict=False)
         eval_model.use_head = False
+        logger.info(f"The best dev EER score was {best_eval_criterion['EER']} at epoch {best_eval_criterion['epoch']}")
         scores = run_verification(eval_model, best_eval_criterion['epoch'], conf, best_eval_criterion, {'head_type': conf.head_type}, dask_client=None, groups=["eval",], device=conf.device)
         logger.info("End verification")
-        logger.info(f"The best dev EER score was {best_eval_criterion['EER']} at epoch {best_eval_criterion['epoch']}")
         logger.info(f"The eval scores for the best model found are {scores}")
 
 if __name__ == '__main__':
@@ -306,12 +324,14 @@ if __name__ == '__main__':
                       help = 'The path of pretrained model')
     conf.add_argument('--resume', '-r', action = 'store_true', default = False, 
                       help = 'Whether to resume from a checkpoint.')
-    conf.add_argument('--fine_tune', '-ft', type=bool, default=False,
+    conf.add_argument('--fine_tune', '-ft', action = 'store_true', default = False,
                       help='Specify if fine tuning to another dataset.')
     conf.add_argument('--n_unfrozen_layers', type=float, default=None,
                       help='Specify the number of trainable layers')
     conf.add_argument('--eval_set', type=str, default=None,
                       help='Specify the bob eval set')
+    conf.add_argument('--ref_file', type=str, default=None,
+                      help='Specify a reference file list for heterogeneous FR')
 
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]

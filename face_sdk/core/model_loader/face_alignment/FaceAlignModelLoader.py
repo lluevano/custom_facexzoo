@@ -4,12 +4,12 @@
 @contact: jun21wangustc@gmail.com 
 """
 import logging.config
-logging.config.fileConfig("config/logging.conf")
+logging.config.fileConfig("../config/logging.conf")
 logger = logging.getLogger('sdk')
 
 import torch
 
-from core.model_loader.BaseModelLoader import BaseModelLoader
+from face_sdk.core.model_loader.BaseModelLoader import BaseModelLoader
 
 class FaceAlignModelLoader(BaseModelLoader):
     def __init__(self, model_path, model_category, model_name, meta_file='model_meta.json'):

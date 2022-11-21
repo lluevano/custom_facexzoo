@@ -7,7 +7,7 @@ import os
 import sys
 sys.path.append('models/network_def')
 import logging.config
-logging.config.fileConfig("config/logging.conf")
+logging.config.fileConfig("../config/logging.conf")
 logger = logging.getLogger('sdk') 
 from abc import ABCMeta, abstractmethod
 

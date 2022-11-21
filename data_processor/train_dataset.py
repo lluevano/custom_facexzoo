@@ -125,3 +125,60 @@ class ImageDataset_SST(Dataset):
         if random.random() > 0.5:
             return image2, image1, cur_id
         return image1, image2, cur_id
+
+
+class ImageDataset_HFR(Dataset):
+    def __init__(self, data_root, train_file, target_domain_file):
+        self.data_root = data_root
+        # get id2image_path_list
+        self.id2image_path_list, self.train_list = self._set_path_id_dict(train_file)
+        self.id2image_ref_path_list, self.ref_list = self._set_path_id_dict(target_domain_file)
+
+    def __len__(self):
+        return len(self.train_list)
+
+    def _set_path_id_dict(self, path_id_file):
+        label_set = set()
+        path_id_file_buf = open(path_id_file)
+        line = path_id_file_buf.readline().strip()
+        path_id_dict = dict()
+        while line:
+            image_path, label = line.split(' ')
+            label = int(label)
+            label_set.add(label)
+            if not label in path_id_dict:
+                path_id_dict[label] = []
+            path_id_dict[label].append(image_path)
+            line = path_id_file_buf.readline().strip()
+        return path_id_dict, list(label_set)
+
+    def _transform(self, img):
+        img = cv2.resize(img, (112, 112), interpolation=cv2.INTER_AREA)
+        if random.random() > 0.5:
+            img = cv2.flip(img, 1)
+        if img.ndim == 2:
+            img = img[:, :, np.newaxis]
+        img = (img.transpose((2, 0, 1)) - 127.5) * 0.0078125
+        img = torch.from_numpy(img.astype(np.float32))
+        return img
+
+    def __getitem__(self, index):
+        cur_id = self.train_list[index]
+        cur_image_path_list = self.id2image_path_list[cur_id]
+        cur_ref_image_path_list = self.id2image_ref_path_list[cur_id]
+        if len(cur_image_path_list) == 1:
+            image_path1 = cur_image_path_list[0]
+            image_path2 = cur_ref_image_path_list[0]
+        else:
+            training_samples = random.sample(cur_image_path_list, 1)
+            ref_samples = random.sample(cur_ref_image_path_list, 1)
+            image_path1 = training_samples[0]
+            image_path2 = ref_samples[0]
+        image_path1 = os.path.join(self.data_root, image_path1)
+        image_path2 = os.path.join(self.data_root, image_path2)
+        image1 = cv2.imread(image_path1)
+        image2 = cv2.imread(image_path2)
+        image1 = self._transform(image1)
+        image2 = self._transform(image2)
+
+        return (image1, image2), cur_id

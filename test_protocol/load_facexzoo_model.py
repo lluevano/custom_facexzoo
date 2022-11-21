@@ -59,10 +59,13 @@ def create_dask_client():
     from dask.distributed import Client
 
     from bob.pipelines.distributed.sge import SGEMultipleQueuesCluster, get_max_jobs
-    from bob.pipelines.distributed.sge_queues import QUEUE_DEFAULT, QUEUE_IOBIG, QUEUE_GPU
-    queue = QUEUE_IOBIG
+    from bob.pipelines.distributed.sge_queues import QUEUE_DEFAULT, QUEUE_IOBIG, QUEUE_GPU, QUEUE_MTH
+    queue = QUEUE_MTH
+    queue["default"]["memory"] = "24GB"
+    queue["default"]["io_big"]: False
+    queue["default"]["job_extra"]: ["-pe pe_mth 8"]
     min_jobs = 1
-    max_jobs = get_max_jobs(queue)
+    max_jobs = 32# get_max_jobs(queue)
     cluster = SGEMultipleQueuesCluster(min_jobs=min_jobs, sge_job_spec=queue, project="scbiometrics")
     cluster.scale(max_jobs)
     # Adapting to minimim 1 job to maximum 48 jobs
@@ -86,7 +89,7 @@ def load_model(conf):
     dask_client = create_dask_client()
     conf.device = torch.device('cpu')
     backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file)    
-    head_factory = HeadFactory('ArcFace', conf.head_conf_file)
+    head_factory = None #HeadFactory('ArcFace', conf.head_conf_file)
     module_factory = ModuleFactory(conf.module_type, conf.module_conf_file) if conf.module_type else None
     model = FaceModel(backbone_factory, head_factory, module_factory)
 
@@ -120,11 +123,11 @@ def load_model(conf):
                     new_k_prefix = "" if k.startswith("backbone.") else "backbone."
                     new_state_dict[new_k_prefix+k] = v
             state_dict = new_state_dict
-            if 'head.weight' in state_dict.keys():
-                #print(state_dict['head.weight'])
-                del state_dict['head.weight']
+        if 'head.weight' in state_dict.keys():
+            #print(state_dict['head.weight'])
+            del state_dict['head.weight']
         logger.info(model.load_state_dict(state_dict, strict=False))
-        _ = run_verification(model, epoch, conf, best_eval_criterion, extra_attrs, dask_client=dask_client, groups=["dev",])
+        _ = run_verification(model, epoch, conf, best_eval_criterion, extra_attrs, dask_client=dask_client, groups=["dev",], device=conf.device)
         try:
             dask_client.restart()
         except:
@@ -136,11 +139,9 @@ def load_model(conf):
     best_saved_name = f"Epoch_{best_epoch}.pt"
     state_dict = torch.load(os.path.join(conf.out_dir, best_saved_name),map_location=torch.device('cpu'))['state_dict']
     logger.info(model.load_state_dict(state_dict, strict=False))
-
-    scores = run_verification(model, best_epoch, conf, best_eval_criterion, extra_attrs, dask_client=dask_client, groups=["eval",])
-
-    logger.info("End verification")
     logger.info(f"The best dev EER score was {best_eval_criterion['EER']} at epoch {best_eval_criterion['epoch']}")
+    scores = run_verification(model, best_epoch, conf, best_eval_criterion, extra_attrs, dask_client=dask_client, groups=["eval",], device=conf.device)
+    logger.info("End verification")
     logger.info(f"The eval scores for the best model found are {scores}")
 
 if __name__ == '__main__':
