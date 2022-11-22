@@ -168,7 +168,7 @@ if __name__ == '__main__':
     args = conf.parse_args()
 
     best_dev_pickle = os.path.isfile(os.path.join(args.out_dir, "best_dev.pickle"))
-    best_dev_eval_pickle = os.path.isfile(os.path.join(args.out_dir, "best_dev_eval.pickle"))
+    best_dev_eval_pickle = os.path.isfile(os.path.join(args.out_dir, "best_dev_eval.pickle")) # previous naming convention
     best_eval_pickle = os.path.isfile(os.path.join(args.out_dir, "best_eval.pickle"))
     if best_dev_pickle and (best_dev_eval_pickle or best_eval_pickle):
         logger.info('best dev and eval pickle files present. Skipping evaluations')

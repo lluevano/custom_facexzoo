@@ -10,6 +10,7 @@ FaceXZoo modifications for idiap by Luis Luevano
 - Previous modules: 
   - Added "modules" folder to train using learning/processing pytorch modules before the backbone
   - Added PDT-ID module
+  - Added RRDBNet module (ESRGAN upscaling module)
 
 ## Training mode
 
@@ -17,6 +18,7 @@ FaceXZoo modifications for idiap by Luis Luevano
 - Added the ability to freeze the whole backbone and head weights and only unfreeze a determined amount of layers.
 - Added flag for fine-tuning (different from resume training)
 - Added verification after training epoch
+- Added Heterogeneous FR training mode
 
 ## Evaluation
 

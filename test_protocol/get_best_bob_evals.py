@@ -1,8 +1,8 @@
 import glob
 import pickle
-pickle_jar_dev = "/idiap/temp/lluevano/FaceX-Zoo/training_mode/conventional_training/PDT_ft_tinyface/IResNet50/*/best_dev.pickle"
-pickle_jar_eval = "/idiap/temp/lluevano/FaceX-Zoo/training_mode/conventional_training/PDT_ft_tinyface/IResNet50/*/best_dev_eval.pickle"
-k = 5
+pickle_jar_dev = "/idiap/temp/lluevano/FaceX-Zoo/training_mode/conventional_training/siamese_PDT_scface_tinyface/MobileFaceNet/*/best_dev.pickle"
+pickle_jar_eval = "/idiap/temp/lluevano/FaceX-Zoo/training_mode/conventional_training/siamese_PDT_scface_tinyface/MobileFaceNet/*/*_eval.pickle"
+k = 3
 
 for pickle_jar in [('dev',pickle_jar_dev), ('eval',pickle_jar_eval)]:
     pickle_iter = glob.iglob(pickle_jar[1])

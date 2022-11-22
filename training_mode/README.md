@@ -1,5 +1,14 @@
 # Training mode  
-Two training modes are included currently, i.e., conventional training and [semi-siamese training](https://arxiv.org/abs/2007.08398). Edit the configuration of each training mode by the following steps, and then you can train a face recognition model by the certain mode.  
+
+## Custom changes
+
+See "./conventional_training" for changes
+
+The rest of this readme is the default for the original FaceXZoo repo
+
+---
+
+Two training modes are included currently, i.e., conventional training and [semi-siamese training](https://arxiv.org/abs/2007.08398). Edit the configuration of each training mode by the following steps, and then you can train a face recognition model by the certain mode.
 
 ## 1. Training data
 We use [MS-Celeb-1M-v1c](http://trillionpairs.deepglint.com/data) for conventional training. To perform open-set evaluation, we try our best to remove the identities which may overlap between this dataset and all of the test sets, resulting in a training set which includes 72,778 identities and about 3.28M images. The final identity list can be found in [MS-Celeb-1M-v1c-r_id_list.txt](../data/files/MS-Celeb-1M-v1c-r_id_list.txt). The format of training list should be the same as [MS-Celeb-1M-v1c-r_train_list.txt](../data/files/MS-Celeb-1M-v1c-r_train_list.txt). The shallow training set MS-Celeb-1M-v1c-Shallow is formed by randomly selecting two images of an identity in MS-Celeb-1M-v1c, and the selected image list can be downloaded in [MS-Celeb-1M-v1c-r-shallow_train_list.txt](../data/files/MS-Celeb-1M-v1c-r-shallow_train_list.txt). The training set for masked face recognition(MS-Celeb-1M-v1c-Mask) includes the original face images of each identity in MS-Celeb1M-v1c, as well as the corresponding masked face image by [FMA-3D](../addition_module/face_mask_adding/FMA-3D). 
