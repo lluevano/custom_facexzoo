@@ -2,11 +2,12 @@
 
 ## Custom changes
 
-See "./conventional_training" for changes
+See [conventional_training](./conventional_training) for changes.
 
-The rest of this readme is the default for the original FaceXZoo repo
+Remember to change the number of classes in [head_conf.yaml](./head_conf.yaml) for your dataset.
 
 ---
+The rest of this readme is the default for the original FaceXZoo repo
 
 Two training modes are included currently, i.e., conventional training and [semi-siamese training](https://arxiv.org/abs/2007.08398). Edit the configuration of each training mode by the following steps, and then you can train a face recognition model by the certain mode.
 

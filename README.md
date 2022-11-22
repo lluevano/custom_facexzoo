@@ -5,16 +5,16 @@ FaceXZoo modifications for idiap by Luis Luevano
 ## Modules and Backbones
 
 - Backbones:
-  - Added IResNet34, IResNet50, and IResNet100. Change depth parameter on training_mode/backbone_conf.yml 
+  - Added IResNet34, IResNet50, and IResNet100. Change depth parameter on [backbone_conf.yaml](./training_mode/backbone_conf.yaml) 
   
 - Previous modules: 
-  - Added "modules" folder to train using learning/processing pytorch modules before the backbone
-  - Added PDT-ID module
-  - Added RRDBNet module (ESRGAN upscaling module)
+  - Added [modules](./modules) folder to train using learning/processing pytorch modules before the backbone. Default config file [module_conf.yaml](./training_mode/module_conf.yaml)
+  - Added [PDT-ID](./modules/PDT.py) module
+  - Added [RRDBNet](./modules/RRDBNet.py) module (ESRGAN upscaling module)
 
 ## Training mode
 
-- Added ".job" scripts to train in the SGE grid (training_mode/conventional_training folder)
+- Added ".job" scripts to train in the SGE grid in [conventional_training](./training_mode/conventional_training/)
 - Added the ability to freeze the whole backbone and head weights and only unfreeze a determined amount of layers.
 - Added flag for fine-tuning (different from resume training)
 - Added verification after training epoch
@@ -22,7 +22,9 @@ FaceXZoo modifications for idiap by Luis Luevano
 
 ## Evaluation
 
-- Evaluation scripts for Bob pipelines available in test_protocol folder
+- Evaluation scripts for Bob pipelines available
+  - Load a checkpoint folder and evaluate all checkpoints [load_facexzoo_model.py](./test_protocol/load_facexzoo_model.py)
+  - Evaluate at training time after each epoch (single worker only) setting the "--eval_set" variable. See [conventional_training](./training_mode/conventional_training/train.py)
 
 ## Other utilities
 
