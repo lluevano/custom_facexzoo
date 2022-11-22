@@ -24,6 +24,13 @@ FaceXZoo modifications for idiap by Luis Luevano
 
 - Evaluation scripts for Bob pipelines available in test_protocol folder
 
+## Other utilities
+
+- Add and customize bob script for face alignment. Currently only working with MTCNN. [bob_crop_face.py](./utils/bob_crop_face.py)
+- Add results compilation scripts [get_best_bob_evals.py](./test_protocol/get_best_bob_evals.py)
+- Add scripts for processing previous module outputs to readable image [get_prev_module_output.py](./test_protocol/get_prev_module_output.py)
+- Add script for reading a bob csv protocol file, resize the images, and generate a usable list file for training. [resize_bob_csv_to_lst.py](./data/files/resize_bob_csv_to_lst.py)
+
 * * *
 The rest of this README file comes by default from the original FaceXZoo repository.
 
