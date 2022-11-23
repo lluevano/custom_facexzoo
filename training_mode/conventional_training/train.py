@@ -17,7 +17,7 @@ sys.path.append('../../')
 from test_protocol.bob_test_protocol import score_bob_model, measure_bob_scores
 
 from utils.AverageMeter import AverageMeter
-from data_processor.train_dataset import (ImageDataset, load_tfrecord_dataset, ImageDataset_HFR)
+from data_processor.train_dataset import (ImageDataset, TFRecordDB, ImageDataset_HFR)
 from backbone.backbone_def import BackboneFactory
 from head.head_def import HeadFactory
 from modules.module_def import ModuleFactory
@@ -49,6 +49,7 @@ class FaceModel(torch.nn.Module):
         self.use_head = True
         self.use_prev_module = True #passthrough, basically
     def forward(self, data, label=None, ref=None):
+        data = data.type(torch.float)
         preprocessed_data = self.prev_module.forward(data) if self.prev_module and self.use_prev_module else data
         feat = self.backbone.forward(preprocessed_data)
         if ref: # HFR Training. Skipping backbone
@@ -194,18 +195,14 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
 def train(conf):
     """Total training procedure.
     """
-    if conf.ref_file:
+    if conf.ref_file and not (conf.train_file.endswith('.tfrecord')):
         data_loader = DataLoader(ImageDataset_HFR(conf.data_root, conf.train_file, conf.ref_file),
                                  conf.batch_size, True, num_workers=4)
-    elif conf.train_file.endswith('.tfrecord'): #  Adapted code to read tfrecord
-        idx_file_path = os.path.join(conf.data_root, 'mxnet', 'train.idx')
-        tfrecord_iterable_db = load_tfrecord_dataset(tfrecord_path=conf.train_file, index_path=idx_file_path)
-        #data_loader = DataLoader(tfrecord_iterable_db, 1, num_workers=4, prefetch_factor=1)
-        #from torch.utils.data.datapipes.iter.combinatorics import ShufflerIterDataPipe # Not working
-        #shuffled = ShufflerIterDataPipe(data_loader, buffer_size=conf.batch_size)
-        data_loader = DataLoader(tfrecord_iterable_db, # TODO: Shuffle tfrecord dataset
-                          batch_size=conf.batch_size,
-                          num_workers=4)
+    elif conf.train_file.endswith('.tfrecord'):  # Adapted code to read tfrecord
+        #  It is advisable to provide the db_size beforehand since it can take some time calculating it
+        #  MSCeleb-ArcFace (also called msceleb-v2 or Emore). Num samples: 5822653
+        tfrecord_iterable_db = TFRecordDB(tfrecord_path=conf.train_file, shuffle_queue_size=1024, HFR=conf.ref_file, db_size=5822653)
+        data_loader = DataLoader(tfrecord_iterable_db, batch_size=conf.batch_size)
     else:
         data_loader = DataLoader(ImageDataset(conf.data_root, conf.train_file),
                                  conf.batch_size, True, num_workers=4)

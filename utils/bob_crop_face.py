@@ -124,22 +124,23 @@ def faceX_cropper(
             print(f"Face on {f} was not detected. {'Saving non-aligned version' if save_not_aligned else ''}")
             print(output_filename)
             if save_not_aligned:
-                os.makedirs(os.path.dirname(output_filename), exist_ok=True)
-                bob.io.base.save(preprocess_insightface(image), output_filename)
-        else:
-            if save_not_aligned:
-                non_aligned -= non_aligned.mean()
-                non_aligned /= non_aligned.std()
-                non_aligned *= 64
-                non_aligned += 128
-                non_aligned = np.clip(non_aligned.detach().numpy(), 0, 255).astype('uint8')
-                non_aligned = non_aligned.reshape((3, 112, 112))
-                non_aligned = cv2.cvtColor(non_aligned.transpose((1,2,0)),cv2.COLOR_BGR2RGB)
-                non_aligned = non_aligned.transpose((2,0,1))
-                #print(non_aligned)
                 non_aligned_output = os.path.join(output_path, f)
                 os.makedirs(os.path.dirname(non_aligned_output), exist_ok=True)
-                bob.io.base.save(non_aligned, non_aligned_output)
+                bob.io.base.save(preprocess_insightface(image), non_aligned_output)
+        else:
+            # if save_not_aligned:
+            #     non_aligned -= non_aligned.mean()
+            #     non_aligned /= non_aligned.std()
+            #     non_aligned *= 64
+            #     non_aligned += 128
+            #     non_aligned = np.clip(non_aligned.detach().numpy(), 0, 255).astype('uint8')
+            #     non_aligned = non_aligned.reshape((3, 112, 112))
+            #     non_aligned = cv2.cvtColor(non_aligned.transpose((1,2,0)),cv2.COLOR_BGR2RGB)
+            #     non_aligned = non_aligned.transpose((2,0,1))
+            #     #print(non_aligned)
+            #     non_aligned_output = os.path.join(output_path, f)
+            #     os.makedirs(os.path.dirname(non_aligned_output), exist_ok=True)
+            #     bob.io.base.save(non_aligned, non_aligned_output)
 
             annot = annot.flatten()
 

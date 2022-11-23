@@ -5,9 +5,9 @@ PDT:
     use_bias: False
     use_cbam: True
 
-RRBDNet:
-    in_nc = 3
-    out_nc = 3
-    nf = 64
-    nb = 23
-    gc = 32
+RRDBNet:
+    in_nc: 3
+    out_nc: 3
+    nf: 64
+    nb: 1 # Number of residual dense block in trunk. Default 23
+    gc: 32

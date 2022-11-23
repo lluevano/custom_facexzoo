@@ -47,11 +47,36 @@ def transform(image):
         image = torch.from_numpy(image.astype(np.float32))
     return image
 
-def load_tfrecord_dataset(tfrecord_path, index_path, description={"data": "byte", "label": "int"}):
-    #  Returns a Pytorch IterableDataset
-    #  tfrecord_path = "/idiap/home/lluevano/my_databases/DataZoo_MS1M-ArcFace/tensorflow/faces_emore.tfrecord"
-    dataset = TFRecordDataset(tfrecord_path, index_path, description)
-    return dataset
+class TFRecordDB(TFRecordDataset):
+    def __init__(self, tfrecord_path, index_path=None, shuffle_queue_size=1024, description=None, HFR=None, db_size=0):
+        self.tfrecord_path = tfrecord_path
+        transform_func = self.__transform_tfrecord_HFR if HFR else self.__transform_tfrecord
+        super().__init__(tfrecord_path, index_path=index_path, shuffle_queue_size=shuffle_queue_size, description=description, transform=transform_func)
+        self.db_size = db_size
+    def __transform_tfrecord(self, tfrecord_item):
+        #convert to cv2 format and normalize
+        tfrecord_item['data'] = cv2.cvtColor(tfrecord_item['data'].reshape((112,112,3)),cv2.COLOR_RGB2BGR)
+        tfrecord_item['data'] = (tfrecord_item['data'].transpose([2, 0, 1]) - 127.5) * 0.0078125
+        return tfrecord_item['data'], tfrecord_item['label']
+
+    def __transform_tfrecord_HFR(self, tfrecord_item):
+        #convert to cv2 format and normalize
+        tfrecord_item['data'] = cv2.cvtColor(tfrecord_item['data'].reshape((112,112,3)),cv2.COLOR_RGB2BGR).astype(np.double)
+        if random.random() > 0.5:
+            interpolation = cv2.INTER_AREA
+        else:
+            interpolation = cv2.INTER_CUBIC
+        tfrecord_item['probe'] = cv2.resize(tfrecord_item['data'],(28,28), interpolation=interpolation)
+        tfrecord_item['data'] = (tfrecord_item['data'].transpose([2, 0, 1]) - 127.5) * 0.0078125
+        tfrecord_item['probe'] = (tfrecord_item['probe'].transpose([2, 0, 1]) - 127.5) * 0.0078125
+        return [tfrecord_item['data'], tfrecord_item['probe']], tfrecord_item['label']
+
+    def __len__(self):
+        if not self.db_size:
+            import tensorflow as tf
+            tf.compat.v1.enable_eager_execution()
+            self.db_size = sum(1 for _ in tf.data.TFRecordDataset(self.tfrecord_path))
+        return self.db_size
 
 class ImageDataset(Dataset):
     def __init__(self, data_root, train_file, crop_eye=False):
