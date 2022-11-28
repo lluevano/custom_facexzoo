@@ -9,5 +9,12 @@ RRDBNet:
     in_nc: 3
     out_nc: 3
     nf: 64
-    nb: 1 # Number of residual dense block in trunk. Default 23
+    nb: 1 # Number of residual dense blocks in trunk. Default 23
+    gc: 32
+
+RRDBNet_prelu:
+    in_nc: 3
+    out_nc: 3
+    nf: 64
+    nb: 1 # Number of residual dense blocks in trunk. Default 23
     gc: 32

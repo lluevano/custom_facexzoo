@@ -26,10 +26,10 @@ class ResidualDenseBlock_5C(nn.Module):
         # mutil.initialize_weights([self.conv1, self.conv2, self.conv3, self.conv4, self.conv5], 0.1)
 
     def forward(self, x):
-        x1 = self.lrelu(self.conv1(x))
-        x2 = self.lrelu(self.conv2(torch.cat((x, x1), 1)))
-        x3 = self.lrelu(self.conv3(torch.cat((x, x1, x2), 1)))
-        x4 = self.lrelu(self.conv4(torch.cat((x, x1, x2, x3), 1)))
+        x1 = self.prelu(self.conv1(x))
+        x2 = self.prelu(self.conv2(torch.cat((x, x1), 1)))
+        x3 = self.prelu(self.conv3(torch.cat((x, x1, x2), 1)))
+        x4 = self.prelu(self.conv4(torch.cat((x, x1, x2, x3), 1)))
         x5 = self.conv5(torch.cat((x, x1, x2, x3, x4), 1))
         return x5 * 0.2 + x
 
@@ -65,7 +65,7 @@ class RRDBNet(nn.Module): #modified
         self.conv_last = nn.Conv2d(nf, out_nc, 3, 1, 1, bias=True)
         self.prelu = nn.PReLU()
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
-        self.convtrans2d = nn.ConvTranspose2d(nf, nf, 3, 2, 1, 1)
+        self.convtrans2d = nn.ConvTranspose2d(nf, nf, 3, 2, 1, 1, bias=True)
 
     def forward(self, x):
         fea = F.interpolate(x, size=(28, 28), mode='area')
@@ -73,10 +73,11 @@ class RRDBNet(nn.Module): #modified
         trunk = self.trunk_conv(self.RRDB_trunk(fea))
         fea = fea + trunk
         #print(fea.shape)
-        fea = self.lrelu(self.upconv1(self.convtrans2d(fea))) #F.interpolate(fea, size=(56, 56), mode='area')
+        fea = self.prelu(self.upconv1(self.convtrans2d(fea))) #F.interpolate(fea, size=(56, 56), mode='area')
         #print(fea.shape)
-        fea = self.lrelu(self.upconv2(self.convtrans2d(fea)))
+        fea = self.prelu(self.upconv2(self.convtrans2d(fea)))
         #print(fea.shape)
-        out = self.conv_last(self.lrelu(self.HRconv(fea)))
+        #fea = F.interpolate(fea, size=(112, 112), mode='area')
+        out = self.conv_last(self.prelu(self.HRconv(fea)))
 
         return out

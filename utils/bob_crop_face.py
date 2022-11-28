@@ -98,9 +98,10 @@ def faceX_cropper(
 ):
     annotator = FaceX106Landmarks(min_size=6, factor=0.79, thresholds=(0.5, 0.5, 0.3))
     image_size = 112
-    total_cropped=0
-    total_imgs=0
+    total_cropped = 0
+    total_imgs = 0
     save_not_aligned = True
+    refs = []
     # Load
     for f in files:
         f = f.rstrip("\n")
@@ -116,17 +117,29 @@ def faceX_cropper(
         if image.ndim == 2:
             image = np.repeat(np.expand_dims(image, 0), 3, axis=0)
 
-        # DEtect landmarks
+        # Detect landmarks
+        if save_not_aligned:
+            non_aligned_output = os.path.join(output_path, 'not_aligned_native', f)
+            os.makedirs(os.path.dirname(non_aligned_output), exist_ok=True)
+            bob.io.base.save(image, non_aligned_output)
+
+            inter_area_img = opencvbgr_to_bob(cv2.resize(bob_to_opencvbgr(image), (28,28), cv2.INTER_AREA))
+            inter_cubic_img = opencvbgr_to_bob(cv2.resize(bob_to_opencvbgr(image), (28, 28), cv2.INTER_CUBIC))
+
+            non_aligned_inter_area = os.path.join(output_path, 'not_aligned_inter_area', f)
+            os.makedirs(os.path.dirname(non_aligned_inter_area), exist_ok=True)
+            bob.io.base.save(inter_area_img, non_aligned_inter_area)
+
+            non_aligned_inter_cubic = os.path.join(output_path, 'not_aligned_inter_cubic', f)
+            os.makedirs(os.path.dirname(non_aligned_inter_cubic), exist_ok=True)
+            bob.io.base.save(inter_cubic_img, non_aligned_inter_cubic)
 
         annot, non_aligned = annotator.annotate(image.copy())
 
         if annot is None:
             print(f"Face on {f} was not detected. {'Saving non-aligned version' if save_not_aligned else ''}")
-            print(output_filename)
-            if save_not_aligned:
-                non_aligned_output = os.path.join(output_path, f)
-                os.makedirs(os.path.dirname(non_aligned_output), exist_ok=True)
-                bob.io.base.save(preprocess_insightface(image), non_aligned_output)
+            #print(output_filename)
+
         else:
             # if save_not_aligned:
             #     non_aligned -= non_aligned.mean()
@@ -156,14 +169,30 @@ def faceX_cropper(
                 image.copy(), M, (image_size, image_size), borderValue=0.0
             )
 
+            inter_area_img = cv2.resize(cropped_image, (28, 28), interpolation=cv2.INTER_AREA)
+            inter_cubic_img = cv2.resize(cropped_image, (28, 28), interpolation=cv2.INTER_CUBIC)
+
             cropped_image = opencvbgr_to_bob(cropped_image)
 
-            #os.makedirs(os.path.dirname(output_filename), exist_ok=True)
-            #bob.io.base.save(cropped_image, output_filename)
+            cropped_inter_area = opencvbgr_to_bob(inter_area_img)
+            cropped_inter_cubic = opencvbgr_to_bob(inter_cubic_img)
+
+            os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+            bob.io.base.save(cropped_image, output_filename)
+
+            os.makedirs(os.path.dirname(os.path.join(output_path, 'aligned_inter_area', f)), exist_ok=True)
+            bob.io.base.save(cropped_inter_area, os.path.join(output_path, 'aligned_inter_area', f))
+
+            os.makedirs(os.path.dirname(os.path.join(output_path, 'aligned_inter_cubic', f)), exist_ok=True)
+            bob.io.base.save(cropped_inter_cubic, os.path.join(output_path, 'aligned_inter_cubic' , f))
+
             total_cropped+=1
+            refs.append(f)
             pass
     print(f"Cropped {round(total_cropped/float(total_imgs),2) if total_imgs else 0}% of the total images ({total_cropped}/{total_imgs})")
-
+    ref_buf = open('./ref_lst.txt','w')
+    ref_buf.write('\n'.join(refs))
+    ref_buf.close()
 
 
 import click
@@ -186,12 +215,14 @@ def crop_faces_faceX(file_list, database_path, output_path, dask_client):
 
     files = open(file_list).readlines()
 
-    files = dask.bag.from_sequence(files)
-    files.map_partitions(
-        faceX_cropper,
-        database_path,
-        output_path,
-    ).compute(scheduler=dask_client)
+    faceX_cropper(files, database_path, output_path)
+
+    #files = dask.bag.from_sequence(files)
+    #files.map_partitions(
+    #    faceX_cropper,
+    #    database_path,
+    #    output_path,
+    #).compute(scheduler=dask_client)
 
     print("##############################################")
     print("#################### DONE ####################")

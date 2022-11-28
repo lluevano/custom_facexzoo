@@ -100,7 +100,7 @@ def unfreeze_first_n_layers(model, n_layers):
 
         return total_unfrozen
 
-    _dfs_unfreeze(model, 0, n_layers)
+    _dfs_unfreeze(model.backbone, 0, n_layers)
 
 def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, dask_client=None, groups=["dev",], device=None):
     #  Add verification using bob
@@ -305,9 +305,9 @@ if __name__ == '__main__':
                       help = 'The training epoches.')
     conf.add_argument('--step', type = str, default = '2,5,7', 
                       help = 'Step for lr.')
-    conf.add_argument('--print_freq', type = int, default = 10, 
+    conf.add_argument('--print_freq', type = int, default = 200,
                       help = 'The print frequency for training state.')
-    conf.add_argument('--save_freq', type = int, default = 10, 
+    conf.add_argument('--save_freq', type = int, default = 3000,
                       help = 'The save frequency for training state.')
     conf.add_argument('--batch_size', type = int, default = 128, 
                       help='The training batch size over all gpus.')

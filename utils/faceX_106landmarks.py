@@ -456,7 +456,7 @@ class FaceX106Landmarks(Base):
                 imageT, dy, edy, dx, edx, cv2.BORDER_CONSTANT, 0
             )
 
-        imageT = cv2.resize(imageT, (self.img_size, self.img_size))
+        imageT = cv2.resize(imageT, (self.img_size, self.img_size), interpolation=cv2.INTER_CUBIC )
         t = transforms.Compose([transforms.ToTensor()])
         img_after = t(imageT)
         return img_after

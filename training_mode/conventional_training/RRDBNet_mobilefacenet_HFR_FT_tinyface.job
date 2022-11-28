@@ -21,19 +21,19 @@ conda activate /idiap/temp/lluevano/my_envs/train_env_bob/
 ## Job
 
 eval_set="tinyface"
-prefix="RRDBNet-prelu_SR_msceleb"
+prefix="RRDBNet-prelu_SR_msceleb_ft_tinyface"
 network="MobileFaceNet"
 depth=""
-n_unfrozen_layers=0
-lr=0.001
+n_unfrozen_layers=72
+lr=0.0001
 loss="ContrastiveLoss"
 
 full_prefix="${prefix}/${network}${depth}/${loss}_nf${n_unfrozen_layers}_lr_${lr}"
 mkdir -p ${full_prefix}
 
 python train.py \
-    --data_root '' \
-    --train_file '/idiap/home/lluevano/my_databases/DataZoo_MS1M-ArcFace/tensorflow/faces_emore.tfrecord' \
+    --data_root '/idiap/home/lluevano/my_temp_folder/tinyface/small_aligned_v2/' \
+    --train_file './RRDB_tinyface_probe_train.lst' \
     --backbone_type "${network}" \
     --head_type "${loss}" \
     --module_type 'RRDBNet_prelu' \
@@ -43,11 +43,12 @@ python train.py \
     --step '10, 13, 16' \
     --batch_size 128 \
     --log_dir "${full_prefix}" \
-    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/MobileFaceNet-ca475a8d.pt.tar.gz/MobileFaceNet.pt' --resume\
+    --pretrain_model '/idiap/home/lluevano/my_temp_folder/FaceX-Zoo/training_mode/conventional_training/RRDBNet-prelu_SR_msceleb/MobileFaceNet/ContrastiveLoss_nf0_lr_0.001/Epoch_18.pt' --resume\
     --tensorboardx_logdir 'mv-hrnet' \
     --fine_tune \
     --n_unfrozen_layers ${n_unfrozen_layers} \
-    --ref_file True \
+    --ref_file 'RRDB_tinyface_ref_train.lst' \
+    --eval_set "${eval_set}" \
     2>&1 | tee "${full_prefix}/log.log"
 
 

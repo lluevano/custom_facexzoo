@@ -177,8 +177,8 @@ class ImageDataset_HFR(Dataset):
             line = path_id_file_buf.readline().strip()
         return path_id_dict, list(label_set)
 
-    def _transform(self, img):
-        img = cv2.resize(img, (112, 112), interpolation=cv2.INTER_AREA)
+    def _transform(self, img, size=(112,112)):
+        img = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
         if random.random() > 0.5:
             img = cv2.flip(img, 1)
         if img.ndim == 2:
@@ -193,17 +193,17 @@ class ImageDataset_HFR(Dataset):
         cur_ref_image_path_list = self.id2image_ref_path_list[cur_id]
         if len(cur_image_path_list) == 1:
             image_path1 = cur_image_path_list[0]
-            image_path2 = cur_ref_image_path_list[0]
+            image_path_ref = cur_ref_image_path_list[0]
         else:
             training_samples = random.sample(cur_image_path_list, 1)
             ref_samples = random.sample(cur_ref_image_path_list, 1)
             image_path1 = training_samples[0]
-            image_path2 = ref_samples[0]
+            image_path_ref = ref_samples[0]
         image_path1 = os.path.join(self.data_root, image_path1)
-        image_path2 = os.path.join(self.data_root, image_path2)
+        image_path_ref = os.path.join(self.data_root, image_path_ref)
         image1 = cv2.imread(image_path1)
-        image2 = cv2.imread(image_path2)
-        image1 = self._transform(image1)
-        image2 = self._transform(image2)
+        image_ref = cv2.imread(image_path_ref)
+        image1 = self._transform(image1, size=(28,28))
+        image_ref = self._transform(image_ref)
 
-        return (image1, image2), cur_id
+        return (image1, image_ref), cur_id
