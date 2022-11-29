@@ -127,6 +127,7 @@ def load_model(conf):
             #print(state_dict['head.weight'])
             del state_dict['head.weight']
         logger.info(model.load_state_dict(state_dict, strict=False))
+        #logger.info(model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu'))['state_dict']))
         _ = run_verification(model, epoch, conf, best_eval_criterion, extra_attrs, dask_client=dask_client, groups=["dev",], device=conf.device)
         try:
             dask_client.restart()

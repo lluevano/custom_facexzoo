@@ -49,7 +49,7 @@ python train.py \
     --log_dir "${full_prefix}" \
     --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/iresnet-91a5de61/iresnet100-73e07ba7.pth' --resume\
     --tensorboardx_logdir 'mv-hrnet' \
-    --fine_tune True \
+    --fine_tune \
     --n_unfrozen_layers ${n_unfrozen_layers} \
     --eval_set survface \
     2>&1 | tee "${full_prefix}/log.log"

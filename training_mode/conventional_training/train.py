@@ -36,7 +36,7 @@ class FaceModel(torch.nn.Module):
         head(object): the head of face model.
     """
     def __init__(self, backbone_factory, head_factory, module_factory):
-        """Init face model by backbone factorcy and head factory.
+        """Init face model by backbone factory and head factory.
         
         Args:
             backbone_factory(object): produce a backbone according to config files.
@@ -52,10 +52,10 @@ class FaceModel(torch.nn.Module):
         data = data.type(torch.float)
         preprocessed_data = self.prev_module.forward(data) if self.prev_module and self.use_prev_module else data
         feat = self.backbone.forward(preprocessed_data)
-        if ref: # HFR Training. Skipping backbone
-            assert (self.head.head_type == 'ContrastiveLoss')
+        if not (ref is None): # HFR Training. Skipping backbone
+            ref = ref.type(torch.float)
             feat_ref = self.backbone.forward(ref)
-            pred = self.head.forward(feat, labels=label, ref_emb=feat_ref, ref_labels=label)
+            pred = self.head.forward(feat, label, ref_emb=feat_ref, ref_labels=label)
         else:
             pred = self.head.forward(feat, label) if self.use_head else feat
         return pred
@@ -73,6 +73,13 @@ def unfreeze_first_n_layers(model, n_layers):
     for p in model.parameters():
         p.requires_grad = False
 
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.modules.BatchNorm1d) or isinstance(module, torch.nn.modules.BatchNorm2d):
+            #if 'vis' in name:
+            module.eval()
+            module.weight.requires_grad = False
+            module.bias.requires_grad = False
+
     def _dfs_unfreeze(mod, unfrozen_n, limit_unfreeze):
         total_unfrozen = unfrozen_n
         mod_gen = mod.children()
@@ -89,6 +96,7 @@ def unfreeze_first_n_layers(model, n_layers):
                     #  print("Leaf: " + str(current_mod) + " visited")
                     if total_unfrozen < limit_unfreeze:
                         print("Leaf: " + str(current_mod) + " unfrozen")
+                        current_mod.train()
                         for param in current_mod.parameters():
                             param.requires_grad = True
                         total_unfrozen += 1
@@ -100,7 +108,7 @@ def unfreeze_first_n_layers(model, n_layers):
 
         return total_unfrozen
 
-    _dfs_unfreeze(model.backbone, 0, n_layers)
+    _dfs_unfreeze(model, 0, n_layers)
 
 def run_verification(model, cur_epoch, conf, best_eval_criterion, extra_attrs, dask_client=None, groups=["dev",], device=None):
     #  Add verification using bob
@@ -149,7 +157,7 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
             loss_g = torch.mean(loss_g)
             loss = criterion(outputs, labels) + loss_g
         elif conf.head_type == 'ContrastiveLoss':
-            if isinstance(images_dl, tuple): #HFR training
+            if isinstance(images_dl, list): #HFR training
                 loss = model.forward(images, labels, ref=images_ref)
             else:
                 loss = model.forward(images, labels, ref=None)
@@ -190,8 +198,19 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
         eval_model.use_head = False
         _ = run_verification(eval_model, cur_epoch, conf, best_eval_criterion, {'head_type': conf.head_type}, dask_client=None, groups=["dev",], device=conf.device)
         eval_model.use_head = True
-        eval_model.train()
+        eval_model.head.train()
+        #restore training config
+        if conf.fine_tune and (not (conf.n_unfrozen_layers is None)):
+            #unfreeze_first_n_layers(model.backbone, conf.n_unfrozen_layers)
+            unfreeze_first_n_layers(eval_model.backbone, conf.n_unfrozen_layers)
+            if conf.module_type: # Unfreezing prev_module
+                eval_model.prev_module.train()
+                for name, param in eval_model.named_parameters():
+                    if name.startswith("prev_module"):
+                        param.requires_grad = True
+                logger.info(f"Unfrozen prev_module params {name}")
         logger.info('End verification')
+        
 def train(conf):
     """Total training procedure.
     """
@@ -200,7 +219,7 @@ def train(conf):
                                  conf.batch_size, True, num_workers=4)
     elif conf.train_file.endswith('.tfrecord'):  # Adapted code to read tfrecord
         #  It is advisable to provide the db_size beforehand since it can take some time calculating it
-        #  MSCeleb-ArcFace (also called msceleb-v2 or Emore). Num samples: 5822653
+        #  MSCeleb-ArcFace (also called msceleb-v3 or Emore). Num samples: 5822653
         tfrecord_iterable_db = TFRecordDB(tfrecord_path=conf.train_file, shuffle_queue_size=1024, HFR=conf.ref_file, db_size=5822653)
         data_loader = DataLoader(tfrecord_iterable_db, batch_size=conf.batch_size)
     else:
@@ -233,13 +252,14 @@ def train(conf):
         logger.info(model.load_state_dict(state_dict, strict=False))
         #  freeze and unfreeze some layers
         if conf.fine_tune and (not (conf.n_unfrozen_layers is None)):
-            unfreeze_first_n_layers(model, conf.n_unfrozen_layers) # also affects prev_module
+            unfreeze_first_n_layers(model.backbone, conf.n_unfrozen_layers)
             if conf.module_type: # Unfreezing prev_module
+                model.prev_module.train()
                 for name, param in model.named_parameters():
                     if name.startswith("prev_module"):
                         param.requires_grad = True
                         logger.info(f"Unfrozen parameter {name}")
-
+    model.head.train()
     model = torch.nn.DataParallel(model).cuda() if torch.cuda.is_available() else model
 
     parameters = [p for p in model.parameters() if p.requires_grad]
@@ -248,17 +268,17 @@ def train(conf):
     lr_schedule = optim.lr_scheduler.MultiStepLR(
         optimizer, milestones = conf.milestones, gamma = 0.1)
     loss_meter = AverageMeter()
-    model.train()
+    #model.train()
     best_eval_criterion={'EER': math.inf}
     #if conf.eval_set:
-    #    logger.info("Starting point on dev set")
+    #    logger.info("Starting point on dev and eval sets")
     #    eval_model = model.module
     #    eval_model.use_head = False
-    #    scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev"], out_dir=conf.out_dir, epoch="start")
+    #    scores = score_bob_model(eval_model, db_name=conf.eval_set, groups=["dev", "eval"], out_dir=conf.out_dir, epoch=0, device=conf.device)
     #    logger.info(f"{scores}")
     #    eval_model.use_head = True
     #    eval_model.train()
-        #logger.info("End verification")
+    #    logger.info("End verification")
 
     for epoch in range(ori_epoch, conf.epoches):
         train_one_epoch(data_loader, model, optimizer, 
@@ -315,7 +335,7 @@ if __name__ == '__main__':
                       help = 'The momentum for sgd.')
     conf.add_argument('--log_dir', type = str, default = 'log', 
                       help = 'The directory to save log.log')
-    conf.add_argument('--tensorboardx_logdir', type = str, 
+    conf.add_argument('--tensorboardx_logdir', type = str, default = 'mv-hrnet',
                       help = 'The directory to save tensorboardx logs')
     conf.add_argument('--pretrain_model', type = str, default = 'mv_epoch_8.pt', 
                       help = 'The path of pretrained model')

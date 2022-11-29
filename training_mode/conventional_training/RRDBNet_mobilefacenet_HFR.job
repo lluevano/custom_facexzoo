@@ -25,7 +25,7 @@ prefix="RRDBNet-prelu_SR_msceleb"
 network="MobileFaceNet"
 depth=""
 n_unfrozen_layers=0
-lr=0.001
+lr=0.1
 loss="ContrastiveLoss"
 
 full_prefix="${prefix}/${network}${depth}/${loss}_nf${n_unfrozen_layers}_lr_${lr}"

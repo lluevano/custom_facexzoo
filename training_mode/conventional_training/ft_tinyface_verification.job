@@ -21,12 +21,12 @@ conda activate /idiap/temp/lluevano/my_envs/train_env_bob/
 ## Job
 
 eval_set="tinyface"
-prefix="ft_tinyface_verification"
-network="IResNet"
-depth="100"
-n_unfrozen_layers=9
+prefix="ft_tinyface_verification3"
+network="MobileFaceNet"
+depth=""
+n_unfrozen_layers=72
 lr=0.0001
-loss="ContrastiveLoss"
+loss="ArcFace"
 
 full_prefix="${prefix}/${network}${depth}/${loss}_nf${n_unfrozen_layers}_lr_${lr}"
 mkdir -p ${full_prefix}
@@ -35,21 +35,17 @@ python train.py \
     --data_root '/idiap/temp/lluevano/tinyface/resized/' \
     --train_file './tinyface_train_list.lst' \
     --backbone_type "${network}" \
-    --backbone_conf_file '../backbone_conf.yaml' \
     --head_type "${loss}" \
-    --head_conf_file '../head_conf.yaml' \
     --lr ${lr} \
     --out_dir "${full_prefix}"\
     --epoches 19 \
     --step '10, 13, 16' \
-    --print_freq 200 \
-    --save_freq 3000 \
-    --batch_size 64 \
-    --momentum 0.9 \
+    --batch_size 128 \
     --log_dir "${full_prefix}" \
-    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/iresnet-91a5de61/iresnet100-73e07ba7.pth' --resume\
-    --tensorboardx_logdir 'mv-hrnet' \
-    --fine_tune True \
+    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/MobileFaceNet-ca475a8d.pt.tar.gz/MobileFaceNet.pt' \
+    --resume \
+    --fine_tune \
+    --eval_set "${eval_set}" \
     --n_unfrozen_layers ${n_unfrozen_layers} \
     2>&1 | tee "${full_prefix}/log.log"
 

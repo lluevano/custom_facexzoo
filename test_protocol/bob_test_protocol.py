@@ -63,7 +63,7 @@ def score_bob_model(model, db_name="tinyface", out_dir="/idiap/temp/lluevano/DEB
 
     #  FaceXZoo model has the backbone and head modules. We select the backbone for verification
     backbone = model
-    bob_model = MyModel(device=device if device else torch.device("cpu"))
+    bob_model = MyModel(device=device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     bob_model.pass_module(backbone)
 
     transformer = [('embedding', wrap(["sample"], bob_model))]

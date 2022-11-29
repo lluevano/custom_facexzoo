@@ -69,7 +69,7 @@ class TFRecordDB(TFRecordDataset):
         tfrecord_item['probe'] = cv2.resize(tfrecord_item['data'],(28,28), interpolation=interpolation)
         tfrecord_item['data'] = (tfrecord_item['data'].transpose([2, 0, 1]) - 127.5) * 0.0078125
         tfrecord_item['probe'] = (tfrecord_item['probe'].transpose([2, 0, 1]) - 127.5) * 0.0078125
-        return [tfrecord_item['data'], tfrecord_item['probe']], tfrecord_item['label']
+        return [tfrecord_item['probe'], tfrecord_item['data']], tfrecord_item['label']
 
     def __len__(self):
         if not self.db_size:

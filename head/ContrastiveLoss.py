@@ -18,6 +18,6 @@ class ContrastiveLoss(Module):
             self.pos_margin = 0
             self.neg_margin = 1
         self.loss_func = losses.ContrastiveLoss(pos_margin=self.pos_margin, neg_margin=self.neg_margin, distance=self.distance)
-    def forward(self, feats, labels):
-        loss = self.loss_func(feats, labels)
+    def forward(self, feats, labels, ref_emb=None, ref_labels=None):
+        loss = self.loss_func(feats, labels, ref_emb=ref_emb, ref_labels=ref_labels)
         return loss
