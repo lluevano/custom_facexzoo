@@ -1,7 +1,7 @@
 import glob
 import pickle
-pickle_jar_dev = "/idiap/home/lluevano/my_temp_folder/FaceX-Zoo/training_mode/conventional_training/ft_tinyface_verification/MobileFaceNet/*/best_dev.pickle"
-pickle_jar_eval = "/idiap/home/lluevano/my_temp_folder/FaceX-Zoo/training_mode/conventional_training/ft_tinyface_verification/MobileFaceNet/*/*_eval.pickle"
+pickle_jar_dev = "/idiap/home/lluevano/my_temp_folder/FaceX-Zoo/training_mode/conventional_training/pretrain_emore_RRDBNet-prelu_SR_msceleb_ft_tinyface/MobileFaceNet/*/best_dev.pickle"
+pickle_jar_eval = "/idiap/home/lluevano/my_temp_folder/FaceX-Zoo/training_mode/conventional_training/pretrain_emore_RRDBNet-prelu_SR_msceleb_ft_tinyface/MobileFaceNet/*/*_eval.pickle"
 k = 5
 
 for pickle_jar in [('dev',pickle_jar_dev), ('eval',pickle_jar_eval)]:

@@ -208,7 +208,7 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
                 for name, param in eval_model.named_parameters():
                     if name.startswith("prev_module"):
                         param.requires_grad = True
-                logger.info(f"Unfrozen prev_module params {name}")
+                        logger.info(f"Unfrozen prev_module params {name}")
         logger.info('End verification')
         
 def train(conf):
@@ -233,23 +233,25 @@ def train(conf):
     model = FaceModel(backbone_factory, head_factory, module_factory)
     ori_epoch = 0
     if conf.resume:
-        ori_epoch = ori_epoch if conf.fine_tune else torch.load(args.pretrain_model, map_location=conf.device)['epoch'] # TODO catch keyerror
-        ori_epoch += 1
-        try:
-            state_dict = torch.load(args.pretrain_model, map_location=conf.device)['state_dict']
-        except KeyError: #  format is likely not to come from facexzoo
-            state_dict = torch.load(args.pretrain_model, map_location=conf.device)
-            assert type(state_dict) == dict
-            new_state_dict = {}
-            for k, v in state_dict.items():
-                if k != 'head.weight':
-                    new_k_prefix = "" if k.startswith("backbone.") else "backbone."
-                    new_state_dict[new_k_prefix+k] = v
-            state_dict = new_state_dict
-        if conf.fine_tune and ('head.weight' in state_dict.keys()):
-            #print(state_dict['head.weight'])
-            del state_dict['head.weight']
-        logger.info(model.load_state_dict(state_dict, strict=False))
+        for checkpoint in args.pretrain_model.split(","):
+            ori_epoch = ori_epoch if conf.fine_tune else torch.load(checkpoint.strip(), map_location=conf.device)['epoch'] # TODO catch keyerror
+            ori_epoch += 1
+
+            try:
+                state_dict = torch.load(checkpoint.strip(), map_location=conf.device)['state_dict']
+            except KeyError: #  format is likely not to come from facexzoo
+                state_dict = torch.load(checkpoint.strip(), map_location=conf.device)
+                assert type(state_dict) == dict
+                new_state_dict = {}
+                for k, v in state_dict.items():
+                    if k != 'head.weight':
+                        new_k_prefix = "" if k.startswith("backbone.") else "backbone."
+                        new_state_dict[new_k_prefix+k] = v
+                state_dict = new_state_dict
+            if conf.fine_tune and ('head.weight' in state_dict.keys()):
+                #print(state_dict['head.weight'])
+                del state_dict['head.weight']
+            logger.info(model.load_state_dict(state_dict, strict=False))
         #  freeze and unfreeze some layers
         if conf.fine_tune and (not (conf.n_unfrozen_layers is None)):
             unfreeze_first_n_layers(model.backbone, conf.n_unfrozen_layers)

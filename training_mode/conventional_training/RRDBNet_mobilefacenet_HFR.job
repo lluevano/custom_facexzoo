@@ -43,11 +43,11 @@ python train.py \
     --step '10, 13, 16' \
     --batch_size 128 \
     --log_dir "${full_prefix}" \
-    --pretrain_model '/idiap/home/lluevano/bob_data/data/pytorch/MobileFaceNet-ca475a8d.pt.tar.gz/MobileFaceNet.pt' --resume\
+    --pretrain_model '/idiap/home/lluevano/my_temp_folder/FaceX-Zoo/training_mode/conventional_training/RRDBNet-prelu_SR_msceleb/MobileFaceNet/ContrastiveLoss_nf0_lr_0.1/Epoch_1_batch_17999.pt' --resume\
     --tensorboardx_logdir 'mv-hrnet' \
     --fine_tune \
     --n_unfrozen_layers ${n_unfrozen_layers} \
     --ref_file True \
-    2>&1 | tee "${full_prefix}/log.log"
+    2>&1 | tee "${full_prefix}/log_cont.log"
 
 
