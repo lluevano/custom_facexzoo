@@ -47,7 +47,7 @@ class FaceModel(torch.nn.Module):
         self.backbone = backbone_factory.get_backbone()
         self.head = head_factory.get_head() if head_factory else None
         self.use_head = True
-        self.use_prev_module = True #passthrough, basically
+        self.use_prev_module = True
     def forward(self, data, label=None, ref=None):
         data = data.type(torch.float)
         preprocessed_data = self.prev_module.forward(data) if self.prev_module and self.use_prev_module else data

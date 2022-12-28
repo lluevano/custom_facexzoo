@@ -216,7 +216,7 @@ def crop_faces_faceX(file_list, database_path, output_path, dask_client):
     files = open(file_list).readlines()
 
     faceX_cropper(files, database_path, output_path)
-
+    dask.bag.from_sequence()
     #files = dask.bag.from_sequence(files)
     #files.map_partitions(
     #    faceX_cropper,

@@ -7,3 +7,4 @@ training_mode/*/*/*
 __pycache__
 *.pyc
 test_protocol/logs/*
+*.mat

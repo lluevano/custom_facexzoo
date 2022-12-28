@@ -40,9 +40,11 @@ class CommonTestDataset(Dataset):
         short_image_path = self.image_list[index]
         image_path = os.path.join(self.image_root, short_image_path)
         image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-        #image = cv2.resize(image, (128, 128))
+        image = cv2.resize(image, (112, 112), interpolation=cv2.INTER_CUBIC)
         if self.crop_eye:
             image = image[:60, :]
+        if image.ndim == 2:
+            image = image[:, :, np.newaxis]
         image = (image.transpose((2, 0, 1)) - self.mean) / self.std
         image = torch.from_numpy(image.astype(np.float32))
         return image, short_image_path

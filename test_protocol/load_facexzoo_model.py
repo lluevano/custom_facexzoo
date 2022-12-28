@@ -138,7 +138,7 @@ def load_model(conf):
     # load best model
     best_epoch = best_eval_criterion['epoch']
     best_saved_name = f"Epoch_{best_epoch}.pt"
-    state_dict = torch.load(os.path.join(conf.out_dir, best_saved_name),map_location=torch.device('cpu'))['state_dict']
+    state_dict = torch.load(os.path.join(conf.out_dir, best_saved_name), map_location=torch.device('cpu'))['state_dict']
     logger.info(model.load_state_dict(state_dict, strict=False))
     logger.info(f"The best dev EER score was {best_eval_criterion['EER']} at epoch {best_eval_criterion['epoch']}")
     scores = run_verification(model, best_epoch, conf, best_eval_criterion, extra_attrs, dask_client=dask_client, groups=["eval",], device=conf.device)

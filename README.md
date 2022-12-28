@@ -9,8 +9,8 @@ FaceXZoo modifications for idiap by Luis Luevano
   
 - Previous modules: 
   - Added [modules](./modules) folder to train using learning/processing pytorch modules before the backbone. Default config file [module_conf.yaml](./training_mode/module_conf.yaml)
-  - Added [PDT-ID](./modules/PDT.py) module
-  - Added [RRDBNet](./modules/RRDBNet.py) module (ESRGAN upscaling module)
+  - Added [PDT-ID](./modules/PDT.py) module 
+  - Added [RRDBNet](./modules/RRDBNet.py) module (ESRGAN upscaling module)(original using ReLU and modified with PReLU)
 
 ## Training mode
 
@@ -19,6 +19,8 @@ FaceXZoo modifications for idiap by Luis Luevano
 - Added flag for fine-tuning (different from resume training)
 - Added verification after training epoch
 - Added Heterogeneous FR training mode
+- Added functionality for loading multiple checkpoints at once, for different parts of the network
+- Added the ability to load tfrecord datasets
 
 ## Evaluation
 
@@ -26,12 +28,17 @@ FaceXZoo modifications for idiap by Luis Luevano
   - Load a checkpoint folder and evaluate all checkpoints [load_facexzoo_model.py](./test_protocol/load_facexzoo_model.py)
   - Evaluate at training time after each epoch (single worker only) setting the "--eval_set" variable. See [conventional_training](./training_mode/conventional_training/train.py)
 
+- Porting of original identification protocol from matlab to Python for TinyFace
+  - Extract features from models from conventional_training using [tinyface_extractor.py](./test_protocol/tinyface/tinyface_extractor.py).
+  - Run identification evaluations using [test_face_identification.py](./test_protocol/tinyface/identification_protocol/test_face_identification.py)
+  
 ## Other utilities
 
 - Add and customize bob script for face alignment. Currently only working with MTCNN. [bob_crop_face.py](./utils/bob_crop_face.py)
 - Add results compilation scripts [get_best_bob_evals.py](./test_protocol/get_best_bob_evals.py)
 - Add scripts for processing previous module outputs to readable image [get_prev_module_output.py](./test_protocol/get_prev_module_output.py)
 - Add script for reading a bob csv protocol file, resize the images, and generate a usable list file for training. [resize_bob_csv_to_lst.py](./data/files/resize_bob_csv_to_lst.py)
+- Added custom model loader for feature extraction on [custom_model_loader.py](./test_protocol/utils/custom_model_loader.py)
 
 * * *
 The rest of this README file comes by default from the original FaceXZoo repository.
