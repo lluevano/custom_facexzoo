@@ -5,6 +5,7 @@ sys.path.append('../../')
 from modules.PDT import PDT
 from modules.RRDBNet import RRDBNet
 from modules.RRDBNet_prelu import RRDBNet as RRDBNet_prelu
+from modules.my_RRDBNet import RRDBNet as my_RRDBNet
 class ModuleFactory:
 
     """Factory to produce head according to the head_conf.yaml
@@ -42,6 +43,13 @@ class ModuleFactory:
             nb = self.module_param['nb']
             gc = self.module_param['gc']
             mod = RRDBNet_prelu(in_nc, out_nc, nf, nb, gc=gc)
+        elif self.module_type == "my_RRDBNet":
+            in_nc = self.module_param['in_nc']
+            out_nc = self.module_param['out_nc']
+            nf = self.module_param['nf']
+            nb = self.module_param['nb']
+            gc = self.module_param['gc']
+            mod = my_RRDBNet(in_nc, out_nc, nf, nb, gc=gc)
         else:
             pass
 
