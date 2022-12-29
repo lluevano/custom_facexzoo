@@ -68,7 +68,7 @@ class RRDBNet(nn.Module): #modified
         self.convtrans2d = nn.ConvTranspose2d(nf, nf, 3, 2, 1, 1, bias=True)
 
     def forward(self, x):
-        fea = F.interpolate(x, size=(14, 14), mode='cubic')
+        fea = F.interpolate(x, size=(14, 14), mode='bicubic')
         fea = self.conv_first(fea)
         fea = self.prelu(self.upconv1(self.convtrans2d(fea)))
         trunk = self.trunk_conv(self.RRDB_trunk(fea))
