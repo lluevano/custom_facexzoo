@@ -4,6 +4,7 @@ training_mode/*/*.o*
 training_mode/*/*/*
 *.log
 *.pt
+*.pth
 __pycache__
 *.pyc
 test_protocol/logs/*
